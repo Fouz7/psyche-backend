@@ -1,0 +1,29 @@
+{
+  "name": "psyche-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "api/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node api/index.js",
+    "vercel-build": "prisma generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^6.8.2",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "bcrpyt": "^2.0.0",
+    "bcrypt": "^6.0.0",
+    "express": "^5.1.0",
+    "express-validator": "^7.2.1",
+    "firebase-admin": "^13.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.3",
+    "prisma": "^6.8.2",
+    "uuid": "^11.1.0"
+  }
+}

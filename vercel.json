@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.js"
+    }
+  ],
+  "env": {
+    "POSTGRES_URL_NON_POOLING": "@postgres_url_non_pooling",
+    "GEMINI_API_KEY": "@gemini_api_key",
+    "FIREBASE_SERVICE_ACCOUNT_KEY": "@firebase_service_account_key"
+  }
+}
