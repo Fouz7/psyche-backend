@@ -15,6 +15,8 @@
   "env": {
     "POSTGRES_URL_NON_POOLING": "@postgres_url_non_pooling",
     "GEMINI_API_KEY": "@gemini_api_key",
-    "FIREBASE_SERVICE_ACCOUNT_KEY": "@firebase_service_account_key"
+    "FIREBASE_PROJECT_ID": "@firebase_project_id",
+    "FIREBASE_PRIVATE_KEY": "@firebase_private_key",
+    "FIREBASE_CLIENT_EMAIL": "@firebase_client_email"
   }
 }
