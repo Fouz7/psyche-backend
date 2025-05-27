@@ -84,7 +84,11 @@ export const login = async (req, res) => {
 
         const firebaseToken = await getAuth().createCustomToken(user.firebaseUid);
 
-        res.status(200).json({message: 'Logged in successfully', firebaseToken: firebaseToken});
+        res.status(200).json({
+            message: 'Logged in successfully',
+            firebaseToken: firebaseToken,
+            username: user.username
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Login failed', error: error.message});
