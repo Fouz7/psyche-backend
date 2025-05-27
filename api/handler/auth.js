@@ -1,6 +1,6 @@
 import {initializeApp, cert} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma/index.js';
 import {body, validationResult} from 'express-validator';
 import bcrypt from 'bcrypt';
 
