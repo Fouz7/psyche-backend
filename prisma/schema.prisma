@@ -19,6 +19,7 @@ model User {
   username     String       @unique
   email        String       @unique
   passwordHash String
+  firebaseUid  String? @unique
   createdAt    DateTime     @default(now())
   healthTest  HealthTest[]
 
