@@ -140,7 +140,7 @@ export const predictDepression = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
-    const {userId, language = 'en', ...scores} = req.body; // Default to 'en' if language is not provided
+    const {userId, language = 'en', ...scores} = req.body;
 
     for (const field of MENTAL_HEALTH_FIELDS) {
         if (scores[field] === undefined) {
@@ -154,7 +154,6 @@ export const predictDepression = async (req, res) => {
 
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
-    // Definisikan pemetaan skor ke poin bobot gejala
     const SYMPTOM_WEIGHT_POINTS = {
         1: 0, // Never
         2: 3, // Always (bobot tertinggi)
@@ -164,16 +163,12 @@ export const predictDepression = async (req, res) => {
         6: 0  // Not at all
     };
 
-    // Hitung total skor gejala berdasarkan pemetaan
     const totalSymptomScore = scoreValues
         .map(score => SYMPTOM_WEIGHT_POINTS[score] || 0) // Ambil poin, default 0 jika skor tidak valid
         .reduce((sum, points) => sum + points, 0);
 
     let depressionState;
 
-    // Tentukan depressionState berdasarkan totalSymptomScore
-    // Rentang ini adalah contoh dan mungkin perlu disesuaikan berdasarkan validasi klinis
-    // Dengan 12 pertanyaan, skor maksimal bisa 12 * 3 = 36 poin.
     if (totalSymptomScore <= 5) { // Contoh: 0-5 poin
         depressionState = 0; // Tidak ada depresi / Minimal
     } else if (totalSymptomScore <= 12) { // Contoh: 6-12 poin
