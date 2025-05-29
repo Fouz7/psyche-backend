@@ -146,30 +146,42 @@ export const predictDepression = async (req, res) => {
         if (scores[field] === undefined) {
             return res.status(400).json({message: `Missing field: ${field}`});
         }
+        const scoreValue = parseInt(scores[field], 10);
+        if (isNaN(scoreValue) || scoreValue < 1 || scoreValue > 6) {
+            return res.status(400).json({message: `Invalid score for ${field}. Must be an integer between 1 and 6.`});
+        }
     }
 
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
+    // Definisikan pemetaan skor ke poin bobot gejala
+    const SYMPTOM_WEIGHT_POINTS = {
+        1: 0, // Never
+        2: 3, // Always (bobot tertinggi)
+        3: 2, // Often
+        4: 0, // Rarely (dianggap tidak signifikan untuk total skor, detail bisa ditangkap getConcerningScoresDetails)
+        5: 1, // Sometimes
+        6: 0  // Not at all
+    };
+
+    // Hitung total skor gejala berdasarkan pemetaan
+    const totalSymptomScore = scoreValues
+        .map(score => SYMPTOM_WEIGHT_POINTS[score] || 0) // Ambil poin, default 0 jika skor tidak valid
+        .reduce((sum, points) => sum + points, 0);
+
     let depressionState;
 
-    const allAreOne = scoreValues.every(score => score === 1);
-    const allAreTwo = scoreValues.every(score => score === 2);
-
-    if (allAreOne) {
-        depressionState = 0;
-    } else if (allAreTwo) {
-        depressionState = 3;
-    } else {
-        const totalScore = scoreValues.reduce((sum, score) => sum + score, 0);
-        if (totalScore >= 24) {
-            depressionState = 0;
-        } else if (totalScore >= 16) {
-            depressionState = 1;
-        } else if (totalScore >= 8) {
-            depressionState = 2;
-        } else {
-            depressionState = 3;
-        }
+    // Tentukan depressionState berdasarkan totalSymptomScore
+    // Rentang ini adalah contoh dan mungkin perlu disesuaikan berdasarkan validasi klinis
+    // Dengan 12 pertanyaan, skor maksimal bisa 12 * 3 = 36 poin.
+    if (totalSymptomScore <= 5) { // Contoh: 0-5 poin
+        depressionState = 0; // Tidak ada depresi / Minimal
+    } else if (totalSymptomScore <= 12) { // Contoh: 6-12 poin
+        depressionState = 1; // Ringan
+    } else if (totalSymptomScore <= 19) { // Contoh: 13-19 poin
+        depressionState = 2; // Sedang
+    } else { // Contoh: totalSymptomScore >= 20 (hingga 36)
+        depressionState = 3; // Berat
     }
 
     const generatedSuggestion = await getGeminiSuggestion(depressionState, scores, language);
@@ -192,7 +204,7 @@ export const predictDepression = async (req, res) => {
                 restlessness: parseInt(scores.restlessness),
                 depressionState: depressionState,
                 generatedSuggestion: generatedSuggestion,
-                language: language // Save the language used for the suggestion
+                language: language
             },
         });
 
