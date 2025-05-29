@@ -1,4 +1,3 @@
-// handler/mental_health.js
 import { PrismaClient } from '../../generated/prisma/index.js';
 import {validationResult} from 'express-validator';
 import {GoogleGenerativeAI} from '@google/generative-ai';
@@ -70,7 +69,7 @@ async function getGeminiSuggestion(depressionState, scores) {
                 promptBase = `A user's mental health assessment indicates moderate depressive symptoms.${specificScoreDetails} Provide a brief, supportive suggestion (2-3 sentences) encouraging them to consider talking to a mental health professional, especially highlighting the importance of addressing the specifically mentioned concerns.`;
                 break;
             case 3: // Severe
-                promptBase = `A user's mental health assessment indicates severe depressive symptoms.${specificScoreDetails} Provide a brief, supportive, and empathetic suggestion (2-3 sentences) strongly recommending they seek professional help immediately. Emphasize the seriousness of any specifically mentioned concerns like suicidal ideation.`;
+                promptBase = `A user's mental health assessment indicates severe depressive symptoms.${specificScoreDetails} Provide a brief, supportive, and empathetic suggestion (4 sentences) strongly recommending they seek professional help immediately. Emphasize the seriousness of any specifically mentioned concerns like suicidal ideation.`;
                 break;
             default:
                 promptBase = `Provide a general mental wellness tip (1-2 sentences).${specificScoreDetails}`;
@@ -114,22 +113,19 @@ export const predictDepression = async (req, res) => {
     const allAreTwo = scoreValues.every(score => score === 2);
 
     if (allAreOne) {
-        depressionState = 0; // No depression
+        depressionState = 0;
     } else if (allAreTwo) {
-        depressionState = 3; // Severe
+        depressionState = 3;
     } else {
         const totalScore = scoreValues.reduce((sum, score) => sum + score, 0);
-        // User's scoring logic: higher sum = better state (less depression)
-        // 1: Never, 2: Always, 3: Often, 4: Rarely, 5: Sometimes, 6: Not at all.
-        // "Always" (2) contributes less to sum than "Not at all" (6). This is consistent.
         if (totalScore >= 24) {
-            depressionState = 0; // No depression
+            depressionState = 0;
         } else if (totalScore >= 16) {
-            depressionState = 1; // Mild
+            depressionState = 1;
         } else if (totalScore >= 8) {
-            depressionState = 2; // Moderate
-        } else { // totalScore < 8
-            depressionState = 3; // Severe
+            depressionState = 2;
+        } else {
+            depressionState = 3;
         }
     }
 
@@ -208,5 +204,45 @@ export const getTestHistoryByUserId = async (req, res) => {
     } catch (error) {
         console.error('Error retrieving test history:', error);
         res.status(500).json({message: 'Failed to retrieve test history.', error: error.message});
+    }
+};
+
+export const getLatestTestHistoryByUserId = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { userId } = req.params;
+
+    try {
+        const userExists = await prisma.user.findUnique({
+            where: { id: parseInt(userId) },
+        });
+
+        if (!userExists) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        const latestTest = await prisma.healthTest.findFirst({
+            where: {
+                userId: parseInt(userId),
+            },
+            orderBy: {
+                healthTestDate: 'desc',
+            },
+        });
+
+        if (!latestTest) {
+            return res.status(200).json({ message: 'No test history found for this user.', data: null });
+        }
+
+        res.status(200).json({
+            message: 'Latest test history retrieved successfully.',
+            data: latestTest,
+        });
+    } catch (error) {
+        console.error('Error retrieving latest test history:', error);
+        res.status(500).json({ message: 'Failed to retrieve latest test history.', error: error.message });
     }
 };
