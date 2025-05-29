@@ -87,6 +87,7 @@ export const login = async (req, res) => {
         res.status(200).json({
             message: 'Logged in successfully',
             firebaseToken: firebaseToken,
+            email: user.email,
             username: user.username,
             userId: user.id
         });
