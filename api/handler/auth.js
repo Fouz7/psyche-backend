@@ -35,7 +35,7 @@ export const register = async (req, res) => {
             data: {
                 username,
                 email,
-                passwordHash, // Kept for now, but not used in the current Firebase-centric login
+                passwordHash,
                 firebaseUid: userRecord.uid
             },
         });
@@ -46,12 +46,10 @@ export const register = async (req, res) => {
         if (error.code === 'auth/email-already-exists') {
             return res.status(400).json({message: 'Email already in use by a Firebase account.'});
         }
-
         if (error.code === 'P2002' && error.meta?.target?.includes('username')) {
             return res.status(400).json({message: 'Username already taken.'});
         }
         if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-
             return res.status(400).json({message: 'Email already taken in database.'});
         }
         res.status(500).json({message: 'Registration failed', error: error.message});
@@ -60,7 +58,8 @@ export const register = async (req, res) => {
 
 // Validator for the login endpoint
 export const loginValidators = [
-    body('idToken').notEmpty().withMessage('Firebase ID token is required.'),
+    body('email').isEmail().withMessage('Please provide a valid email address.'),
+    body('password').notEmpty().withMessage('Password is required.'),
 ];
 
 export const login = async (req, res) => {
@@ -70,19 +69,21 @@ export const login = async (req, res) => {
     }
 
     try {
-        const {idToken} = req.body;
-
-        const decodedToken = await getAuth().verifyIdToken(idToken);
-        const firebaseUid = decodedToken.uid;
+        const {email, password} = req.body;
 
         const user = await prisma.user.findUnique({
             where: {
-                firebaseUid: firebaseUid,
+                email: email,
             },
         });
 
         if (!user) {
-            return res.status(404).json({message: 'User not found in our system. Please register or contact support.'});
+            return res.status(401).json({message: 'Invalid email or password.'});
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
+            return res.status(401).json({message: 'Invalid email or password.'});
         }
 
         // Generate a new Firebase custom token
@@ -90,7 +91,6 @@ export const login = async (req, res) => {
 
         res.status(200).json({
             message: 'Logged in successfully',
-            token: idToken,
             firebaseToken: newCustomToken,
             email: user.email,
             username: user.username,
@@ -100,9 +100,6 @@ export const login = async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
-        if (error.code === 'auth/id-token-expired' || error.code === 'auth/argument-error' || error.code === 'auth/id-token-revoked') {
-            return res.status(401).json({message: 'Invalid or expired Firebase ID token.', error: error.message});
-        }
         res.status(500).json({message: 'Login failed', error: error.message});
     }
 };
@@ -121,14 +118,20 @@ export const requestPasswordReset = async (req, res) => {
     const {email} = req.body;
 
     try {
-        await getAuth().generatePasswordResetLink(email);
+        // Check if user exists in Firebase (optional, but good practice)
+        await getAuth().getUserByEmail(email);
+        const link = await getAuth().generatePasswordResetLink(email);
+        // You might want to send this link via email to the user
+        // For now, just confirming the process would be initiated
         res.status(200).json({
-            message: 'If your email address is registered with us, you will receive a password reset link shortly.'
+            message: 'If your email address is registered with us, you will receive a password reset link shortly.',
+            // passwordResetLink: link // Optionally return link for testing, remove for production
         });
 
     } catch (error) {
         console.error('Error in requestPasswordReset:', error);
-        res.status(200).json({ // Generic message to prevent email enumeration
+        // Generic message to prevent email enumeration, even if user not found by Firebase
+        res.status(200).json({
             message: 'If your email address is registered with us, you will receive a password reset link shortly.'
         });
     }
@@ -136,7 +139,7 @@ export const requestPasswordReset = async (req, res) => {
 
 // Validators for the change password endpoint
 export const changePasswordValidators = [
-    body('idToken').notEmpty().withMessage('Firebase ID token is required.'),
+    body('idToken').notEmpty().withMessage('Firebase ID token is required.'), // This still expects an idToken
     body('newPassword').isLength({min: 6}).withMessage('New password must be at least 6 characters long.'),
 ];
 
@@ -158,11 +161,11 @@ export const changePassword = async (req, res) => {
 
         const newPasswordHash = await bcrypt.hash(newPassword, 10);
         await prisma.user.update({
-            where: { firebaseUid: uid },
-            data: { passwordHash: newPasswordHash },
+            where: {firebaseUid: uid},
+            data: {passwordHash: newPasswordHash},
         });
 
-        res.status(200).json({message: 'Password updated successfully in Firebase.'});
+        res.status(200).json({message: 'Password updated successfully in Firebase and database.'});
 
     } catch (error) {
         console.error('Change password error:', error);
