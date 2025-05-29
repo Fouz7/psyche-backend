@@ -15,6 +15,9 @@ const healthTestValidations = [
     body('userId')
         .notEmpty().withMessage('User ID is required.')
         .isInt({min: 1}).withMessage('User ID must be a positive integer.'),
+    body('language')
+        .optional()
+        .isIn(['en', 'id']).withMessage('Language must be either "en" or "id".'),
     ...MENTAL_HEALTH_FIELDS.map(field =>
         body(field)
             .notEmpty().withMessage(`${field} score is required.`)

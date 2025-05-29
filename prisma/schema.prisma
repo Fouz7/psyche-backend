@@ -44,6 +44,7 @@ model HealthTest {
   hopelessness        Int?
   restlessness        Int?
   depressionState     Int?
+  language            String?
   generatedSuggestion String?  @db.VarChar(1024)
 
   @@map("health_tests")
