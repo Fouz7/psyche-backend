@@ -13,4 +13,8 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/mental-health', mentalHealthRouter);
 
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
+
 export default app;

@@ -16,7 +16,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.8.2",
-    "@tensorflow/tfjs-node": "^4.22.0",
+    "@tensorflow/tfjs": "^4.15.0",
     "bcrpyt": "^2.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",

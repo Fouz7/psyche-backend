@@ -1,9 +1,61 @@
 import {PrismaClient} from '../../generated/prisma/index.js';
 import {validationResult} from 'express-validator';
 import {GoogleGenerativeAI} from '@google/generative-ai';
+import * as tf from '@tensorflow/tfjs';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {promises as fs} from 'fs';
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const modelJsonPath = path.resolve(__dirname, '../../tfjs_model/model.json');
+
+const fileSystemHandler = (modelJsonPath) => {
+    const modelDir = path.dirname(modelJsonPath);
+
+    return {
+        load: async () => {
+            // Read model.json
+            const modelJson = JSON.parse(await fs.readFile(modelJsonPath, 'utf-8'));
+            const {modelTopology, weightsManifest} = modelJson;
+
+            // Read weight data
+            const weightBuffers = [];
+            for (const entry of weightsManifest) {
+                for (const weightPath of entry.paths) {
+                    const binPath = path.join(modelDir, weightPath);
+                    const buffer = await fs.readFile(binPath);
+                    weightBuffers.push(buffer);
+                }
+            }
+            // Concatenate all weight buffers into one ArrayBuffer.
+            const weightData = Buffer.concat(weightBuffers).buffer;
+
+            return {
+                modelTopology,
+                weightSpecs: weightsManifest[0].weights, // Assuming one manifest entry
+                weightData,
+            };
+        },
+    };
+};
+
+
+let model;
+(async () => {
+    try {
+        // Use the custom file system handler to load the model
+        const handler = fileSystemHandler(modelJsonPath);
+        model = await tf.loadLayersModel(handler);
+        console.log("TF.js model loaded successfully from:", modelJsonPath);
+    } catch (error) {
+        console.error("Error loading TF.js model:", error);
+        model = null;
+    }
+})();
 
 const MENTAL_HEALTH_FIELDS = [
     'appetite', 'interest', 'fatigue', 'worthlessness', 'concentration',
@@ -140,6 +192,10 @@ export const predictDepression = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
+    if (!model) {
+        return res.status(500).json({message: 'Machine learning model is not available.'});
+    }
+
     const {userId, language = 'en', ...scores} = req.body;
 
     for (const field of MENTAL_HEALTH_FIELDS) {
@@ -154,30 +210,22 @@ export const predictDepression = async (req, res) => {
 
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
-    const SYMPTOM_WEIGHT_POINTS = {
-        1: 0, // Never
-        2: 3, // Always (bobot tertinggi)
-        3: 2, // Often
-        4: 0, // Rarely (dianggap tidak signifikan untuk total skor, detail bisa ditangkap getConcerningScoresDetails)
-        5: 1, // Sometimes
-        6: 0  // Not at all
-    };
-
-    const totalSymptomScore = scoreValues
-        .map(score => SYMPTOM_WEIGHT_POINTS[score] || 0) // Ambil poin, default 0 jika skor tidak valid
-        .reduce((sum, points) => sum + points, 0);
-
     let depressionState;
+    try {
+        const inputTensor = tf.tensor2d([scoreValues]);
 
-    if (totalSymptomScore <= 5) { // Contoh: 0-5 poin
-        depressionState = 0; // Tidak ada depresi / Minimal
-    } else if (totalSymptomScore <= 12) { // Contoh: 6-12 poin
-        depressionState = 1; // Ringan
-    } else if (totalSymptomScore <= 19) { // Contoh: 13-19 poin
-        depressionState = 2; // Sedang
-    } else { // Contoh: totalSymptomScore >= 20 (hingga 36)
-        depressionState = 3; // Berat
+        const prediction = model.predict(inputTensor);
+
+        const predictionData = await prediction.data();
+        depressionState = prediction.argMax(-1).dataSync()[0];
+
+        console.log(`Model Prediction - Probabilities: [${predictionData.join(', ')}], Result: ${depressionState}`);
+
+    } catch (error) {
+        console.error('Error during model prediction:', error);
+        return res.status(500).json({message: 'Failed to predict depression state using the model.'});
     }
+
 
     const generatedSuggestion = await getGeminiSuggestion(depressionState, scores, language);
 
