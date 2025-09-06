@@ -2,6 +2,7 @@ import {PrismaClient} from '../../generated/prisma/index.js';
 import {body, validationResult} from 'express-validator';
 import bcrypt from 'bcrypt';
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
@@ -50,11 +51,19 @@ export const login = async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({message: 'Invalid password.'});
         }
+
+        const token = jwt.sign(
+            {sub: user.id, email: user.email, username: user.username},
+            process.env.JWT_SECRET || 'dev-secret',
+            {expiresIn: '7d'}
+        );
+
         res.status(200).json({
             message: 'Logged in successfully',
             email: user.email,
             username: user.username,
-            userId: user.id
+            userId: user.id,
+            token
         });
     } catch (error) {
         res.status(500).json({message: 'Login failed', error: error.message});
