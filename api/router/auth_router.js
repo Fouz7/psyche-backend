@@ -1,4 +1,3 @@
-// router/auth_router.js
 import express from 'express';
 import * as authHandler from '../handler/auth.js';
 import {body} from 'express-validator';
@@ -13,8 +12,9 @@ router.post('/register', [
 
 router.post('/login', authHandler.loginValidators, authHandler.login);
 
-router.post('/forgot-password', authHandler.requestPasswordResetValidators, authHandler.requestPasswordReset);
+router.post('/forgot-password', authHandler.forgotPasswordValidators, authHandler.forgotPassword);
 
 router.post('/change-password', authHandler.changePasswordValidators, authHandler.changePassword);
+
 
 export default router;

@@ -1,4 +1,3 @@
-// router/mental_health_router.js
 import express from 'express';
 import * as mentalHealthHandler from '../handler/mental_health.js';
 import {body, param} from 'express-validator';
