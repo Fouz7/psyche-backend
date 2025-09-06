@@ -10,19 +10,17 @@ const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const modelJsonPath = path.resolve(__dirname, '../tfjs_model/model.json');
+const projectRoot = process.env.VERCEL ? '/var/task' : process.cwd();
+const modelJsonPath = path.join(projectRoot, 'api', 'tfjs_model', 'model.json');
 
 const fileSystemHandler = (modelJsonPath) => {
     const modelDir = path.dirname(modelJsonPath);
 
     return {
         load: async () => {
-            // Read model.json
             const modelJson = JSON.parse(await fs.readFile(modelJsonPath, 'utf-8'));
             const {modelTopology, weightsManifest} = modelJson;
 
-            // Read weight data
             const weightBuffers = [];
             for (const entry of weightsManifest) {
                 for (const weightPath of entry.paths) {
@@ -31,12 +29,11 @@ const fileSystemHandler = (modelJsonPath) => {
                     weightBuffers.push(buffer);
                 }
             }
-            // Concatenate all weight buffers into one ArrayBuffer.
             const weightData = Buffer.concat(weightBuffers).buffer;
 
             return {
                 modelTopology,
-                weightSpecs: weightsManifest[0].weights, // Assuming one manifest entry
+                weightSpecs: weightsManifest[0].weights,
                 weightData,
             };
         },
@@ -47,7 +44,6 @@ const fileSystemHandler = (modelJsonPath) => {
 let model;
 (async () => {
     try {
-        // Use the custom file system handler to load the model
         const handler = fileSystemHandler(modelJsonPath);
         model = await tf.loadLayersModel(handler);
         console.log("TF.js model loaded successfully from:", modelJsonPath);
@@ -81,7 +77,6 @@ const SCORE_MEANINGS_ID = {
     6: "Tidak sama sekali"
 };
 
-// Helper to generate a string detailing concerning scores
 function getConcerningScoresDetails(scores, language = 'en') {
     let details = "";
     const SCORE_MEANINGS = language === 'id' ? SCORE_MEANINGS_ID : SCORE_MEANINGS_EN;
