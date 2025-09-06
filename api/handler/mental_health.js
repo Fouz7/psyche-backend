@@ -40,18 +40,30 @@ const fileSystemHandler = (modelJsonPath) => {
     };
 };
 
+let modelPromise = null;
 
-let model;
-(async () => {
-    try {
-        const handler = fileSystemHandler(modelJsonPath);
-        model = await tf.loadLayersModel(handler);
-        console.log("TF.js model loaded successfully from:", modelJsonPath);
-    } catch (error) {
-        console.error("Error loading TF.js model:", error);
-        model = null;
+const loadModel = async () => {
+    if (modelPromise) {
+        return modelPromise;
     }
-})();
+
+    modelPromise = (async () => {
+        try {
+            const handler = fileSystemHandler(modelJsonPath);
+            const model = await tf.loadLayersModel(handler);
+            console.log("TF.js model loaded successfully from:", modelJsonPath);
+            return model;
+        } catch (error) {
+            console.error("Error loading TF.js model:", error);
+            modelPromise = null;
+            throw new Error('Machine learning model failed to load.');
+        }
+    })();
+
+    return modelPromise;
+};
+
+loadModel();
 
 const MENTAL_HEALTH_FIELDS = [
     'appetite', 'interest', 'fatigue', 'worthlessness', 'concentration',
@@ -187,8 +199,11 @@ export const predictDepression = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
-    if (!model) {
-        return res.status(500).json({message: 'Machine learning model is not available.'});
+    let model;
+    try {
+        model = await loadModel();
+    } catch (error) {
+        return res.status(500).json({message: error.message || 'Machine learning model is not available.'});
     }
 
     const {userId, language = 'en', ...scores} = req.body;
