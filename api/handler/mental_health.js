@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const modelJsonPath = path.resolve(__dirname, '../../tfjs_model/model.json');
+const modelJsonPath = path.resolve(__dirname, '../tfjs_model/model.json');
 
 const fileSystemHandler = (modelJsonPath) => {
     const modelDir = path.dirname(modelJsonPath);
