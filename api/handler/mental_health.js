@@ -220,9 +220,19 @@ export const predictDepression = async (req, res) => {
 
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
+    const meta = JSON.parse(await fs.readFile(path.join(projectRoot, 'api', 'tfjs_model', 'metadata.json'), 'utf8'));
+    const { featureStats } = meta;
+
+    const normalizedScores = scoreValues.map((value, index) => {
+        const min = featureStats.mins[index];
+        const max = featureStats.maxs[index];
+        const range = max - min;
+        return range === 0 ? 0 : (value - min) / range;
+    });
+
     let depressionState;
     try {
-        const inputTensor = tf.tensor2d([scoreValues]);
+        const inputTensor = tf.tensor2d([normalizedScores]);
 
         const prediction = model.predict(inputTensor);
 
