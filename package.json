@@ -17,13 +17,12 @@
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.8.2",
     "@tensorflow/tfjs": "^4.15.0",
-    "bcrpyt": "^2.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^7.0.3",
+    "nodemailer": "7.0.11",
     "prisma": "^6.8.2",
     "uuid": "^11.1.0"
   }
