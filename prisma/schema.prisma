@@ -20,8 +20,12 @@ model User {
   email        String       @unique
   passwordHash String
   firebaseUid  String? @unique
+  isVerified   Boolean      @default(false)
   createdAt    DateTime     @default(now())
   healthTest  HealthTest[]
+  chatSessions ChatSession[]
+  otp          String?
+  otpExpiresAt DateTime?
 
   @@map("users")
 }
@@ -48,4 +52,30 @@ model HealthTest {
   generatedSuggestion String?  @db.VarChar(1024)
 
   @@map("health_tests")
+}
+
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  title     String?
+  isPinned  Boolean       @default(false)
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        Int         @id @default(autoincrement())
+  sessionId Int
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String
+  content   String      @db.Text
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime    @default(now())
+
+  @@map("chat_messages")
 }

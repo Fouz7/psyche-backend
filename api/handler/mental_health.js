@@ -8,6 +8,7 @@ import {promises as fs} from 'fs';
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
 const __filename = fileURLToPath(import.meta.url);
 const projectRoot = process.env.VERCEL ? '/var/task' : process.cwd();
@@ -127,7 +128,7 @@ function getConcerningScoresDetails(scores, language = 'en') {
 
 async function getGeminiSuggestion(depressionState, scores, language = 'en') {
     try {
-        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+        const model = genAI.getGenerativeModel({model: GEMINI_MODEL});
         let promptBase;
         const specificScoreDetails = getConcerningScoresDetails(scores, language);
 
@@ -221,7 +222,7 @@ export const predictDepression = async (req, res) => {
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
     const meta = JSON.parse(await fs.readFile(path.join(projectRoot, 'api', 'tfjs_model', 'metadata.json'), 'utf8'));
-    const { featureStats } = meta;
+    const {featureStats} = meta;
 
     const normalizedScores = scoreValues.map((value, index) => {
         const min = featureStats.mins[index];

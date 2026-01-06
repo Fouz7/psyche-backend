@@ -12,7 +12,11 @@ router.post('/register', [
 
 router.post('/login', authHandler.loginValidators, authHandler.login);
 
+router.get('/verify-email', authHandler.verifyEmail);
+
 router.post('/forgot-password', authHandler.forgotPasswordValidators, authHandler.forgotPassword);
+
+router.post('/verify-otp', authHandler.verifyOtpValidators, authHandler.verifyOtp);
 
 router.post('/change-password', authHandler.changePasswordValidators, authHandler.changePassword);
 
