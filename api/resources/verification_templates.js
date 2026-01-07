@@ -23,9 +23,10 @@ export const getVerificationSuccessHtml = () => `
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Account Verified</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; margin: 0; }
-    .container { text-align: center; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    body { font-family: 'Quicksand', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; margin: 0; }
+    .container { text-align: center; padding: 40px; }
     h1 { color: #15594F; margin-bottom: 10px; }
     p { color: #555; font-size: 18px; }
     .image-container img { width: 100px; height: auto; margin-bottom: 20px; }
@@ -46,7 +47,8 @@ export const getVerificationSuccessHtml = () => `
 `;
 
 export const getVerificationEmailHtml = (username, verificationLink) => `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #15594F; border-radius: 10px; text-align: center;">
+<style>@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap');</style>
+<div style="font-family: 'Quicksand', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #15594F; border-radius: 10px; text-align: center;">
     <h2 style="color: #333;">Verify Your Account</h2>
     <h3 style="color: #555;">Hello, ${username}!</h3>
     <p style="color: #555; font-size: 16px;">Thank you for registering. Please click the button below to verify your account:</p>
@@ -57,4 +59,3 @@ export const getVerificationEmailHtml = (username, verificationLink) => `
     <p style="color: #aaa; font-size: 12px;">&copy; Psyche</p>
 </div>
 `;
-

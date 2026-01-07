@@ -36,7 +36,8 @@ export const register = async (req, res) => {
         });
 
         const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-        const verificationLink = `${baseUrl}/auth/verify-email?token=${verificationToken}&email=${email}`;
+        const payload = Buffer.from(`${email}:${verificationToken}`).toString('base64');
+        const verificationLink = `${baseUrl}/auth/verify-email?code=${payload}`;
 
         const transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -52,9 +53,6 @@ export const register = async (req, res) => {
 
         res.status(201).json({message: 'User created. Please check your email to verify your account.', userId: newUser.id});
     } catch (error) {
-        if (error.code === 'P2002' && error.meta?.target?.includes('username')) {
-            return res.status(400).json({message: 'Username already taken.'});
-        }
         if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
             return res.status(400).json({message: 'Email already taken.'});
         }
@@ -211,13 +209,22 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const verifyEmail = async (req, res) => {
-    const { token, email } = req.query;
+    const { code } = req.query;
 
-    if (!token || !email) {
-        return res.status(400).send('<h1>Invalid Request: Missing token or email.</h1>');
+    if (!code) {
+        return res.status(400).send('<h1>Invalid Request: Missing verification code.</h1>');
     }
 
+    let email, token;
+
     try {
+        const decoded = Buffer.from(code, 'base64').toString('utf-8');
+        [email, token] = decoded.split(':');
+
+        if (!email || !token) {
+            return res.status(400).send('<h1>Invalid verification link format.</h1>');
+        }
+
         const user = await prisma.user.findUnique({where: {email}});
         if (!user) {
             return res.status(404).send('<h1>User not found.</h1>');

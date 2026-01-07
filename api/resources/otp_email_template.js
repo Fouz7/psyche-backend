@@ -12,7 +12,8 @@ export const getPasswordResetTemplate = (otp) => {
     }).join('');
 
     return `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #15594F; border-radius: 10px;">
+        <style>@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap');</style>
+        <div style="font-family: 'Quicksand', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #15594F; border-radius: 10px;">
             <h2 style="color: #333; text-align: center;">Password Reset</h2>
             <p style="color: #555; font-size: 16px;">Hello,</p>
             <p style="color: #555; font-size: 16px;">You requested to reset your password. Use the OTP below to proceed:</p>
