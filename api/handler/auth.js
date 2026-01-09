@@ -122,6 +122,11 @@ export const changePassword = async (req, res) => {
             return res.status(404).json({message: 'User not found.'});
         }
 
+        const isSameAsOld = await bcrypt.compare(newPassword, user.passwordHash);
+        if (isSameAsOld) {
+            return res.status(400).json({message: 'New password must be different from old password.'});
+        }
+
         const cleanOtp = otp ? otp.replace(/\s/g, '') : null;
 
         if (oldPassword) {
@@ -130,11 +135,11 @@ export const changePassword = async (req, res) => {
                 return res.status(401).json({message: 'Old password is incorrect.'});
             }
         } else if (cleanOtp) {
-             if (!user.otp || user.otp !== cleanOtp) {
-                 return res.status(400).json({message: 'Invalid OTP.'});
+            if (!user.otp || user.otp !== cleanOtp) {
+                return res.status(400).json({message: 'Invalid OTP.'});
             }
             if (getJakartaTime() > new Date(user.otpExpiresAt)) {
-                 return res.status(400).json({message: 'OTP has expired.'});
+                return res.status(400).json({message: 'OTP has expired.'});
             }
         } else {
             return res.status(400).json({message: 'Old password (for change) or OTP (for reset) is required.'});

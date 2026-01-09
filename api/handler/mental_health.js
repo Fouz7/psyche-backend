@@ -200,6 +200,11 @@ export const predictDepression = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
+    const authUserId = req.user?.userId;
+    if (!authUserId) {
+        return res.status(401).json({message: 'Unauthorized'});
+    }
+
     let model;
     try {
         model = await loadModel();
@@ -208,6 +213,10 @@ export const predictDepression = async (req, res) => {
     }
 
     const {userId, language = 'en', ...scores} = req.body;
+
+    if (parseInt(userId) !== parseInt(authUserId)) {
+        return res.status(403).json({message: 'Forbidden'});
+    }
 
     for (const field of MENTAL_HEALTH_FIELDS) {
         if (scores[field] === undefined) {
@@ -293,7 +302,16 @@ export const getTestHistoryByUserId = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
+    const authUserId = req.user?.userId;
+    if (!authUserId) {
+        return res.status(401).json({message: 'Unauthorized'});
+    }
+
     const {userId} = req.params;
+
+    if (parseInt(userId) !== parseInt(authUserId)) {
+        return res.status(403).json({message: 'Forbidden'});
+    }
 
     try {
         const userExists = await prisma.user.findUnique({
@@ -333,7 +351,16 @@ export const getLatestTestHistoryByUserId = async (req, res) => {
         return res.status(400).json({errors: errors.array()});
     }
 
+    const authUserId = req.user?.userId;
+    if (!authUserId) {
+        return res.status(401).json({message: 'Unauthorized'});
+    }
+
     const {userId} = req.params;
+
+    if (parseInt(userId) !== parseInt(authUserId)) {
+        return res.status(403).json({message: 'Forbidden'});
+    }
 
     try {
         const userExists = await prisma.user.findUnique({

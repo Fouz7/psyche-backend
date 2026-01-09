@@ -1,6 +1,7 @@
 import express from 'express';
 import * as mentalHealthHandler from '../handler/mental_health.js';
 import {body, param} from 'express-validator';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -33,18 +34,21 @@ const userIdValidation = [
 
 router.post(
     '/predict',
+    requireAuth,
     healthTestValidations,
     mentalHealthHandler.predictDepression
 );
 
 router.get(
     '/history/:userId',
+    requireAuth,
     userIdValidation,
     mentalHealthHandler.getTestHistoryByUserId
 );
 
 router.get(
     '/latest-history/:userId',
+    requireAuth,
     userIdValidation,
     mentalHealthHandler.getLatestTestHistoryByUserId
 );

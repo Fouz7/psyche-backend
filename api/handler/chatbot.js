@@ -136,8 +136,17 @@ export const chatHandler = async (req, res) => {
 export const getChatHistory = async (req, res) => {
     try {
         const { userId } = req.params;
+        const authUserId = req.user?.userId;
+
         if (!userId) {
             return res.status(400).json({ error: "User ID is required" });
+        }
+        if (!authUserId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (parseInt(userId) !== parseInt(authUserId)) {
+            return res.status(403).json({ error: "Forbidden" });
         }
 
         const sessions = await prisma.chatSession.findMany({
@@ -172,17 +181,20 @@ export const getChatHistory = async (req, res) => {
 export const togglePinSession = async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { userId } = req.body;
+        const authUserId = req.user?.userId;
 
-        if (!sessionId || !userId) {
-            return res.status(400).json({ error: "Session ID and User ID are required" });
+        if (!sessionId) {
+            return res.status(400).json({ error: "Session ID is required" });
+        }
+        if (!authUserId) {
+            return res.status(401).json({ error: "Unauthorized" });
         }
 
         const session = await prisma.chatSession.findUnique({
             where: { id: parseInt(sessionId) }
         });
 
-        if (!session || session.userId !== parseInt(userId)) {
+        if (!session || session.userId !== parseInt(authUserId)) {
             return res.status(404).json({ error: "Session not found" });
         }
 
@@ -195,7 +207,7 @@ export const togglePinSession = async (req, res) => {
         } else {
             const pinnedCount = await prisma.chatSession.count({
                 where: {
-                    userId: parseInt(userId),
+                    userId: parseInt(authUserId),
                     isPinned: true
                 }
             });
