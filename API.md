@@ -323,14 +323,20 @@ Melakukan prediksi menggunakan model TFJS lokal (`api/tfjs_model`) dan membuat s
 ```json
 {
   "message": "Depression state predicted and recorded successfully.",
-  "depressionState": 2,
-  "suggestion": "...",
   "data": {
     "id": 123,
     "userId": 1,
+    "healthTestDate": "2026-01-01T00:00:00.000Z",
     "depressionState": 2,
-    "generatedSuggestion": "...",
-    "language": "id"
+    "language": "id",
+    "suggestion": {
+      "en": "...",
+      "id": "..."
+    },
+    "tips": {
+      "en": "...",
+      "id": "..."
+    }
   }
 }
 ```
@@ -363,9 +369,17 @@ Catatan: `:userId` harus sama dengan user id di token. Kalau tidak, akan **403 F
     {
       "id": 123,
       "userId": 1,
+      "healthTestDate": "2026-01-01T00:00:00.000Z",
       "depressionState": 2,
-      "generatedSuggestion": "...",
-      "healthTestDate": "2026-01-01T00:00:00.000Z"
+      "language": "en",
+      "suggestion": {
+        "en": "...",
+        "id": "..."
+      },
+      "tips": {
+        "en": "...",
+        "id": "..."
+      }
     }
   ]
 }
@@ -404,7 +418,18 @@ Jika ada data:
   "message": "Latest test history retrieved successfully.",
   "data": {
     "id": 123,
-    "userId": 1
+    "userId": 1,
+    "healthTestDate": "2026-01-01T00:00:00.000Z",
+    "depressionState": 2,
+    "language": "en",
+    "suggestion": {
+      "en": "...",
+      "id": "..."
+    },
+    "tips": {
+      "en": "...",
+      "id": "..."
+    }
   }
 }
 ```

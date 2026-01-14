@@ -3,14 +3,12 @@ import {validationResult} from 'express-validator';
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import * as tf from '@tensorflow/tfjs';
 import path from 'path';
-import {fileURLToPath} from 'url';
 import {promises as fs} from 'fs';
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
-const __filename = fileURLToPath(import.meta.url);
 const projectRoot = process.env.VERCEL ? '/var/task' : process.cwd();
 const modelJsonPath = path.join(projectRoot, 'api', 'tfjs_model', 'model.json');
 
@@ -90,9 +88,7 @@ const SCORE_MEANINGS_ID = {
     6: "Tidak sama sekali"
 };
 
-function getConcerningScoresDetails(scores, language = 'en') {
-    let details = "";
-    const SCORE_MEANINGS = language === 'id' ? SCORE_MEANINGS_ID : SCORE_MEANINGS_EN;
+function getConcerningScoresDetails(scores) {
     const concerningThresholds = {
         appetite: [2, 3],
         interest: [2, 3],
@@ -108,89 +104,76 @@ function getConcerningScoresDetails(scores, language = 'en') {
         restlessness: [2, 3]
     };
 
-    let specificConcerns = [];
+    let concerns = [];
     for (const field of MENTAL_HEALTH_FIELDS) {
         const score = parseInt(scores[field], 10);
         if (concerningThresholds[field] && concerningThresholds[field].includes(score)) {
-            specificConcerns.push(`${field} (${SCORE_MEANINGS[score] || 'N/A'})`);
+            concerns.push({field, score, meaningEn: SCORE_MEANINGS_EN[score], meaningId: SCORE_MEANINGS_ID[score]});
         }
     }
-
-    if (specificConcerns.length > 0) {
-        if (language === 'id') {
-            details = ` Penilaian mencatat kekhawatiran khusus dengan: ${specificConcerns.join(', ')}.`;
-        } else {
-            details = ` The assessment noted particular concerns with: ${specificConcerns.join(', ')}.`;
-        }
-    }
-    return details;
+    return concerns;
 }
 
-async function getGeminiSuggestion(depressionState, scores, language = 'en') {
+async function getGeminiResults(depressionState, scores) {
     try {
-        const model = genAI.getGenerativeModel({model: GEMINI_MODEL});
-        let promptBase;
-        const specificScoreDetails = getConcerningScoresDetails(scores, language);
+        const model = genAI.getGenerativeModel({
+            model: GEMINI_MODEL,
+            generationConfig: { responseMimeType: "application/json" }
+        });
 
-        if (language === 'id') {
-            switch (depressionState) {
-                case 0: // No depression
-                    promptBase = `Hasil asesmen kesehatan mental pengguna menunjukkan tidak ada gejala depresi yang signifikan.${specificScoreDetails} Berikan saran singkat (1-2 kalimat) yang memberi semangat dan suportif untuk menjaga kesehatan mental yang baik. Jika ada kekhawatiran kecil spesifik yang disebutkan, akui secara halus jika sesuai sambil mempertahankan nada positif.`;
-                    break;
-                case 1: // Mild
-                    promptBase = `Hasil asesmen kesehatan mental pengguna menunjukkan gejala depresi ringan.${specificScoreDetails} Berikan saran singkat (1-2 kalimat) yang suportif, fokus pada perawatan diri, pemantauan suasana hati, dan mengatasi kekhawatiran spesifik yang disebutkan.`;
-                    break;
-                case 2: // Moderate
-                    promptBase = `Hasil asesmen kesehatan mental pengguna menunjukkan gejala depresi sedang.${specificScoreDetails} Berikan saran singkat (2-3 kalimat) yang suportif, mendorong mereka untuk mempertimbangkan berbicara dengan profesional kesehatan mental, terutama menyoroti pentingnya mengatasi kekhawatiran spesifik yang disebutkan.`;
-                    break;
-                case 3: // Severe
-                    promptBase = `Hasil asesmen kesehatan mental pengguna menunjukkan gejala depresi berat.${specificScoreDetails} Berikan saran singkat (2-3 kalimat) yang suportif dan empatik, sangat merekomendasikan mereka untuk segera mencari bantuan profesional. Tekankan keseriusan setiap kekhawatiran spesifik yang disebutkan seperti ide bunuh diri.`;
-                    break;
-                default:
-                    promptBase = `Berikan tips kesehatan mental umum (1-2 kalimat).${specificScoreDetails}`;
-            }
-            const fullPrompt = `${promptBase} Pastikan saran tersebut empatik dan dapat ditindaklanjuti. Berikan jawaban dalam Bahasa Indonesia.`;
-            const result = await model.generateContent(fullPrompt);
-            const response = await result.response;
-            return response.text().trim();
-        } else { // English
-            switch (depressionState) {
-                case 0: // No depression
-                    promptBase = `A user's mental health assessment indicates no significant depressive symptoms.${specificScoreDetails} Provide a brief, encouraging, and supportive suggestion (1-2 sentences) for maintaining good mental well-being. If there were specific minor concerns mentioned, subtly acknowledge them if appropriate while maintaining a positive tone.`;
-                    break;
-                case 1: // Mild
-                    promptBase = `A user's mental health assessment indicates mild depressive symptoms.${specificScoreDetails} Provide a brief, supportive suggestion (1-2 sentences) focusing on self-care, monitoring mood, and addressing any specifically mentioned concerns.`;
-                    break;
-                case 2: // Moderate
-                    promptBase = `A user's mental health assessment indicates moderate depressive symptoms.${specificScoreDetails} Provide a brief, supportive suggestion (2-3 sentences) encouraging them to consider talking to a mental health professional, especially highlighting the importance of addressing the specifically mentioned concerns.`;
-                    break;
-                case 3: // Severe
-                    promptBase = `A user's mental health assessment indicates severe depressive symptoms.${specificScoreDetails} Provide a brief, supportive, and empathetic suggestion (2-3 sentences) strongly recommending they seek professional help immediately. Emphasize the seriousness of any specifically mentioned concerns like suicidal ideation.`;
-                    break;
-                default:
-                    promptBase = `Provide a general mental wellness tip (1-2 sentences).${specificScoreDetails}`;
-            }
-            const fullPrompt = `${promptBase} Please ensure the suggestion is empathetic and actionable. Provide the answer in English.`;
-            const result = await model.generateContent(fullPrompt);
-            const response = await result.response;
-            return response.text().trim();
+        const concerns = getConcerningScoresDetails(scores);
+        const concernsText = concerns.map(c => `- ${c.field}: ${c.meaningEn}`).join('\n');
+
+        let stateText = "";
+        switch (depressionState) {
+            case 0: stateText = "No depression"; break;
+            case 1: stateText = "Mild depression"; break;
+            case 2: stateText = "Moderate depression"; break;
+            case 3: stateText = "Severe depression"; break;
         }
 
+        const prompt = `
+            Task: Provide mental health suggestions and tips based on a user's depression assessment.
+            Assessment Result: ${stateText}
+            Specific Concerns:
+            ${concernsText || "No major concerns."}
+
+            Requirements:
+            1. Provide a "suggestion": A brief, empathetic, and supportive message (1-3 sentences).
+            2. Provide "tips": Practical tips for mental health improvement (2-3 tips).
+            3. SPECIAL RULE for Severe Depression (${stateText}): If depressionState is 3 (Severe), the tips MUST strongly recommend visiting the nearest psychiatrist/mental health professional and suggest how to find one (e.g., using maps or visiting local hospitals).
+            4. Provide all outputs in both English (en) and Indonesian (id).
+            5. Return the result strictly as a JSON object with this structure:
+               {
+                 "suggestion": { "en": "...", "id": "..." },
+                 "tips": { "en": "...", "id": "..." }
+               }
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return JSON.parse(response.text().trim());
     } catch (error) {
-        console.error("Error generating suggestion with Gemini:", error);
-        if (language === 'id') {
-            if (depressionState === 0) return "Respons Anda menunjukkan Anda baik-baik saja. Pertahankan kebiasaan positif!";
-            if (depressionState === 1) return "Anda mungkin mengalami gejala ringan. Pertimbangkan untuk memantau suasana hati Anda dan melakukan perawatan diri.";
-            if (depressionState === 2) return "Respons Anda menunjukkan gejala sedang. Akan bermanfaat untuk berbicara dengan seorang profesional kesehatan mental.";
-            if (depressionState === 3) return "Tampaknya Anda menghadapi tantangan yang signifikan. Sangat disarankan untuk mencari bantuan profesional.";
-            return "Penting untuk menjaga kesehatan mental Anda. Pertimbangkan untuk menghubungi seorang profesional jika Anda membutuhkan dukungan.";
-        } else {
-            if (depressionState === 0) return "Your responses suggest you are doing well. Keep up the positive habits!";
-            if (depressionState === 1) return "You might be experiencing mild symptoms. Consider monitoring your mood and practicing self-care.";
-            if (depressionState === 2) return "Your responses indicate moderate symptoms. It would be beneficial to talk to a mental health professional.";
-            if (depressionState === 3) return "It appears you are facing significant challenges. It is highly recommended to seek professional help.";
-            return "It's important to take care of your mental health. Please consider reaching out to a professional if you need support.";
-        }
+        console.error("Error generating results with Gemini:", error);
+        const fallbacks = {
+            0: {
+                suggestion: { en: "You seem to be doing well. Keep it up!", id: "Anda baik-baik saja. Pertahankan!" },
+                tips: { en: "Keep a healthy routine and stay active.", id: "Jaga rutinitas sehat dan tetap aktif." }
+            },
+            1: {
+                suggestion: { en: "You have mild symptoms. Take care of yourself.", id: "Ada gejala ringan. Jaga kesehatan diri." },
+                tips: { en: "Try meditation and talk to friends.", id: "Coba meditasi dan bicara dengan teman." }
+            },
+            2: {
+                suggestion: { en: "Moderate symptoms detected. Consider professional help.", id: "Gejala sedang terdeteksi. Pertimbangkan bantuan profesional." },
+                tips: { en: "Speak with a counselor and monitor your mood.", id: "Bicara dengan konselor dan pantau suasana hati Anda." }
+            },
+            3: {
+                suggestion: { en: "Severe symptoms detected. Please seek help immediately.", id: "Gejala berat terdeteksi. Mohon cari bantuan segera." },
+                tips: { en: "Visit the nearest psychiatrist or hospital emergency room immediately.", id: "Segera kunjungi psikiater terdekat atau IGD rumah sakit." }
+            }
+        };
+        return fallbacks[depressionState] || fallbacks[0];
     }
 }
 
@@ -257,7 +240,7 @@ export const predictDepression = async (req, res) => {
     }
 
 
-    const generatedSuggestion = await getGeminiSuggestion(depressionState, scores, language);
+    const { suggestion, tips } = await getGeminiResults(depressionState, scores);
 
     try {
         const healthTestRecord = await prisma.healthTest.create({
@@ -276,16 +259,25 @@ export const predictDepression = async (req, res) => {
                 hopelessness: parseInt(scores.hopelessness),
                 restlessness: parseInt(scores.restlessness),
                 depressionState: depressionState,
-                generatedSuggestion: generatedSuggestion,
+                suggestionEn: suggestion.en,
+                suggestionId: suggestion.id,
+                tipsEn: tips.en,
+                tipsId: tips.id,
                 language: language
             },
         });
 
         res.status(201).json({
             message: 'Depression state predicted and recorded successfully.',
-            depressionState: depressionState,
-            suggestion: generatedSuggestion,
-            data: healthTestRecord,
+            data: {
+                id: healthTestRecord.id,
+                userId: healthTestRecord.userId,
+                healthTestDate: healthTestRecord.healthTestDate,
+                depressionState: healthTestRecord.depressionState,
+                language: healthTestRecord.language,
+                suggestion: suggestion,
+                tips: tips,
+            },
         });
     } catch (error) {
         console.error('Error saving health test:', error);
@@ -335,9 +327,25 @@ export const getTestHistoryByUserId = async (req, res) => {
             return res.status(200).json({message: 'No test history found for this user.', data: []});
         }
 
+        const mappedHistory = testHistory.map(test => ({
+            id: test.id,
+            userId: test.userId,
+            healthTestDate: test.healthTestDate,
+            depressionState: test.depressionState,
+            language: test.language,
+            suggestion: {
+                en: test.suggestionEn,
+                id: test.suggestionId
+            },
+            tips: {
+                en: test.tipsEn,
+                id: test.tipsId
+            },
+        }));
+
         res.status(200).json({
             message: 'Test history retrieved successfully.',
-            data: testHistory,
+            data: mappedHistory,
         });
     } catch (error) {
         console.error('Error retrieving test history:', error);
@@ -384,9 +392,25 @@ export const getLatestTestHistoryByUserId = async (req, res) => {
             return res.status(200).json({message: 'No test history found for this user.', data: null});
         }
 
+        const mappedLatestTest = {
+            id: latestTest.id,
+            userId: latestTest.userId,
+            healthTestDate: latestTest.healthTestDate,
+            depressionState: latestTest.depressionState,
+            language: latestTest.language,
+            suggestion: {
+                en: latestTest.suggestionEn,
+                id: latestTest.suggestionId
+            },
+            tips: {
+                en: latestTest.tipsEn,
+                id: latestTest.tipsId
+            }
+        };
+
         res.status(200).json({
             message: 'Latest test history retrieved successfully.',
-            data: latestTest,
+            data: mappedLatestTest,
         });
     } catch (error) {
         console.error('Error retrieving latest test history:', error);

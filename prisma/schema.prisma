@@ -49,7 +49,10 @@ model HealthTest {
   restlessness        Int?
   depressionState     Int?
   language            String?
-  generatedSuggestion String?  @db.VarChar(1024)
+  suggestionEn        String?  @db.VarChar(2048)
+  suggestionId        String?  @db.VarChar(2048)
+  tipsEn              String?  @db.VarChar(2048)
+  tipsId              String?  @db.VarChar(2048)
 
   @@map("health_tests")
 }
