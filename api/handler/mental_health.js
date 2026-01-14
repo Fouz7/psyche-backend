@@ -114,7 +114,7 @@ function getConcerningScoresDetails(scores) {
     return concerns;
 }
 
-async function getGeminiResults(depressionState, scores) {
+async function getGeminiResults(depressionState, scores, latitude, longitude) {
     try {
         const model = genAI.getGenerativeModel({
             model: GEMINI_MODEL,
@@ -132,16 +132,32 @@ async function getGeminiResults(depressionState, scores) {
             case 3: stateText = "Severe depression"; break;
         }
 
+        let locationPrompt = "";
+        if (depressionState === 3) {
+            if (latitude && longitude) {
+                locationPrompt = `
+                The user is currently at location (Latitude: ${latitude}, Longitude: ${longitude}). 
+                As part of your "tips", please search for and recommend specific nearby psychiatrists, mental health clinics, or hospitals.`;
+            } else {
+                locationPrompt = `
+                User location is not provided. 
+                As part of your "tips", please provide encouraging advice to help the user feel comfortable seeking professional help. 
+                Emphasize that visiting a psychiatrist is a brave step, nothing to be ashamed of, and is just like seeing a doctor for physical health. 
+                Also, kindly remind them that providing location access would allow for more local and relevant recommendations.`;
+            }
+        }
+
         const prompt = `
             Task: Provide mental health suggestions and tips based on a user's depression assessment.
             Assessment Result: ${stateText}
             Specific Concerns:
             ${concernsText || "No major concerns."}
+            ${locationPrompt}
 
             Requirements:
             1. Provide a "suggestion": A brief, empathetic, and supportive message (1-3 sentences).
             2. Provide "tips": Practical tips for mental health improvement (2-3 tips).
-            3. SPECIAL RULE for Severe Depression (${stateText}): If depressionState is 3 (Severe), the tips MUST strongly recommend visiting the nearest psychiatrist/mental health professional and suggest how to find one (e.g., using maps or visiting local hospitals).
+            3. SPECIAL RULE for Severe Depression (${stateText}): If depressionState is 3 (Severe), the tips MUST strongly recommend visiting the nearest psychiatrist/mental health professional and suggest how to find one (e.g., using maps or visiting local hospitals). Use the location information provided above if available.
             4. Provide all outputs in both English (en) and Indonesian (id).
             5. Return the result strictly as a JSON object with this structure:
                {
@@ -169,8 +185,18 @@ async function getGeminiResults(depressionState, scores) {
                 tips: { en: "Speak with a counselor and monitor your mood.", id: "Bicara dengan konselor dan pantau suasana hati Anda." }
             },
             3: {
-                suggestion: { en: "Severe symptoms detected. Please seek help immediately.", id: "Gejala berat terdeteksi. Mohon cari bantuan segera." },
-                tips: { en: "Visit the nearest psychiatrist or hospital emergency room immediately.", id: "Segera kunjungi psikiater terdekat atau IGD rumah sakit." }
+                suggestion: {
+                    en: "Severe symptoms detected. Please seek help immediately.",
+                    id: "Gejala berat terdeteksi. Mohon cari bantuan segera."
+                },
+                tips: {
+                    en: latitude && longitude
+                        ? "Please visit the nearest psychiatrist or hospital immediately. Based on your location, you can search for 'psychiatrist' on Google Maps to find the closest help."
+                        : "Seeking professional help is a brave and important step for your well-being; it's just like seeing a doctor for Any other health issue. There is absolutely no shame in reaching out. Please consider visiting the nearest clinic and enable location permissions for more localized help.",
+                    id: latitude && longitude
+                        ? "Segera kunjungi psikiater atau IGD rumah sakit terdekat. Berdasarkan lokasi Anda, Anda dapat mencari 'psikiater' di Google Maps untuk bantuan terdekat."
+                        : "Mencari bantuan profesional adalah langkah berani dan penting bagi kesehatan Anda; ini sama halnya dengan pergi ke dokter untuk masalah kesehatan lainnya. Tidak perlu merasa malu untuk meminta bantuan. Silakan kunjungi klinik terdekat dan berikan izin lokasi agar kami bisa membantu mencari bantuan yang lebih spesifik di dekat Anda."
+                }
             }
         };
         return fallbacks[depressionState] || fallbacks[0];
@@ -195,7 +221,7 @@ export const predictDepression = async (req, res) => {
         return res.status(500).json({message: error.message || 'Machine learning model is not available.'});
     }
 
-    const {userId, language = 'en', ...scores} = req.body;
+    const {userId, language = 'en', latitude, longitude, ...scores} = req.body;
 
     if (parseInt(userId) !== parseInt(authUserId)) {
         return res.status(403).json({message: 'Forbidden'});
@@ -240,7 +266,7 @@ export const predictDepression = async (req, res) => {
     }
 
 
-    const { suggestion, tips } = await getGeminiResults(depressionState, scores);
+    const { suggestion, tips } = await getGeminiResults(depressionState, scores, latitude, longitude);
 
     try {
         const healthTestRecord = await prisma.healthTest.create({

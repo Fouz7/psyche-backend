@@ -18,6 +18,12 @@ const healthTestValidations = [
     body('language')
         .optional()
         .isIn(['en', 'id']).withMessage('Language must be either "en" or "id".'),
+    body('latitude')
+        .optional()
+        .isFloat().withMessage('Latitude must be a float.'),
+    body('longitude')
+        .optional()
+        .isFloat().withMessage('Longitude must be a float.'),
     ...MENTAL_HEALTH_FIELDS.map(field =>
         body(field)
             .notEmpty().withMessage(`${field} score is required.`)
