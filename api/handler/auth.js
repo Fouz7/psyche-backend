@@ -53,8 +53,12 @@ export const register = async (req, res) => {
 
         res.status(201).json({message: 'User created. Please check your email to verify your account.', userId: newUser.id});
     } catch (error) {
-        if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-            return res.status(400).json({message: 'Email already taken.'});
+        if (error.code === 'P2002') {
+            const target = error.meta?.target || [];
+            const targetStr = Array.isArray(target) ? target.join(',') : String(target);
+            if (targetStr.includes('email')) {
+                return res.status(400).json({message: 'Email already taken.'});
+            }
         }
         res.status(500).json({message: 'Registration failed', error: error.message});
     }
