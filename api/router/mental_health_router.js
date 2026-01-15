@@ -38,6 +38,12 @@ const userIdValidation = [
         .isInt({min: 1}).withMessage('User ID must be a positive integer.')
 ];
 
+const testIdValidation = [
+    param('testId')
+        .notEmpty().withMessage('Test ID parameter is required.')
+        .isInt({min: 1}).withMessage('Test ID must be a positive integer.')
+];
+
 router.post(
     '/predict',
     requireAuth,
@@ -50,6 +56,13 @@ router.get(
     requireAuth,
     userIdValidation,
     mentalHealthHandler.getTestHistoryByUserId
+);
+
+router.get(
+    '/history-detail/:testId',
+    requireAuth,
+    testIdValidation,
+    mentalHealthHandler.getTestHistoryDetailById
 );
 
 router.get(

@@ -284,6 +284,8 @@ Semua field ini wajib di body (integer 1–6):
 Tambahan:
 - `userId` (int > 0)
 - `language` (optional: `en` atau `id`, default `en`)
+- `latitude` (optional: float/decimal)
+- `longitude` (optional: float/decimal)
 
 ---
 
@@ -298,11 +300,15 @@ Catatan: `userId` di body harus sama dengan user id di token. Kalau tidak, akan 
 
 Melakukan prediksi menggunakan model TFJS lokal (`api/tfjs_model`) dan membuat saran menggunakan Gemini. Hasilnya juga disimpan ke database (`healthTest`).
 
+`latitude` dan `longitude` bersifat opsional, namun jika disertakan akan digunakan Gemini untuk memberikan rekomendasi bantuan/layanan kesehatan mental terdekat.
+
 ### Body
 ```json
 {
   "userId": 1,
   "language": "id",
+  "latitude": -6.2,
+  "longitude": 106.8,
   "appetite": 1,
   "interest": 2,
   "fatigue": 3,
@@ -371,12 +377,7 @@ Catatan: `:userId` harus sama dengan user id di token. Kalau tidak, akan **403 F
       "userId": 1,
       "healthTestDate": "2026-01-01T00:00:00.000Z",
       "depressionState": 2,
-      "language": "en",
       "suggestion": {
-        "en": "...",
-        "id": "..."
-      },
-      "tips": {
         "en": "...",
         "id": "..."
       }
@@ -398,7 +399,64 @@ Jika belum ada history:
 
 ---
 
-## 2.3 Get Latest Test History by User
+## 2.3 Get Test History Detail
+**GET** `/mental-health/history-detail/:testId`
+
+### Auth
+Wajib JWT:
+- `Authorization: Bearer <token>`
+
+Catatan: Test record harus milik user yang login. Kalau tidak, akan **403 Forbidden**.
+
+### Path Param
+- `testId` (int > 0)
+
+### Response
+- **200**
+```json
+{
+  "message": "Test detail retrieved successfully.",
+  "data": {
+    "id": 123,
+    "userId": 1,
+    "healthTestDate": "2026-01-01T00:00:00.000Z",
+    "depressionState": 2,
+    "language": "en",
+    "suggestion": {
+      "en": "...",
+      "id": "..."
+    },
+    "tips": {
+      "en": "...",
+      "id": "..."
+    },
+    "scores": {
+      "appetite": 1,
+      "interest": 2,
+      "fatigue": 3,
+      "worthlessness": 4,
+      "concentration": 5,
+      "agitation": 2,
+      "suicidalIdeation": 6,
+      "sleepDisturbance": 1,
+      "aggression": 1,
+      "panicAttacks": 2,
+      "hopelessness": 3,
+      "restlessness": 4
+    }
+  }
+}
+```
+
+### Error yang mungkin
+- **400** validasi param
+- **404** Test record tidak ditemukan
+- **403** Forbidden (bukan milik user)
+- **500** gagal ambil data
+
+---
+
+## 2.4 Get Latest Test History by User
 **GET** `/mental-health/latest-history/:userId`
 
 ### Auth

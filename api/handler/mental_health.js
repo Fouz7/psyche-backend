@@ -358,14 +358,9 @@ export const getTestHistoryByUserId = async (req, res) => {
             userId: test.userId,
             healthTestDate: test.healthTestDate,
             depressionState: test.depressionState,
-            language: test.language,
             suggestion: {
                 en: test.suggestionEn,
                 id: test.suggestionId
-            },
-            tips: {
-                en: test.tipsEn,
-                id: test.tipsId
             },
         }));
 
@@ -376,6 +371,69 @@ export const getTestHistoryByUserId = async (req, res) => {
     } catch (error) {
         console.error('Error retrieving test history:', error);
         res.status(500).json({message: 'Failed to retrieve test history.', error: error.message});
+    }
+};
+
+export const getTestHistoryDetailById = async (req, res) => {
+    const authUserId = req.user?.userId;
+    if (!authUserId) {
+        return res.status(401).json({message: 'Unauthorized'});
+    }
+
+    const {testId} = req.params;
+
+    try {
+        const test = await prisma.healthTest.findUnique({
+            where: {
+                id: parseInt(testId),
+            },
+        });
+
+        if (!test) {
+            return res.status(404).json({message: 'Test record not found.'});
+        }
+
+        if (test.userId !== parseInt(authUserId)) {
+            return res.status(403).json({message: 'Forbidden'});
+        }
+
+        const result = {
+            id: test.id,
+            userId: test.userId,
+            healthTestDate: test.healthTestDate,
+            depressionState: test.depressionState,
+            language: test.language,
+            suggestion: {
+                en: test.suggestionEn,
+                id: test.suggestionId
+            },
+            tips: {
+                en: test.tipsEn,
+                id: test.tipsId
+            },
+            scores: {
+                appetite: test.appetite,
+                interest: test.interest,
+                fatigue: test.fatigue,
+                worthlessness: test.worthlessness,
+                concentration: test.concentration,
+                agitation: test.agitation,
+                suicidalIdeation: test.suicidalIdeation,
+                sleepDisturbance: test.sleepDisturbance,
+                aggression: test.aggression,
+                panicAttacks: test.panicAttacks,
+                hopelessness: test.hopelessness,
+                restlessness: test.restlessness,
+            }
+        };
+
+        res.status(200).json({
+            message: 'Test detail retrieved successfully.',
+            data: result,
+        });
+    } catch (error) {
+        console.error('Error retrieving test detail:', error);
+        res.status(500).json({message: 'Failed to retrieve test detail.', error: error.message});
     }
 };
 
