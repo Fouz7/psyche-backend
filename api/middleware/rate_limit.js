@@ -2,7 +2,7 @@ import { rateLimit } from 'express-rate-limit';
 
 /** @type {any} */
 const limiterMiddleware = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 60 * 1000,
     max: 10,
     message: {
         status: 429,

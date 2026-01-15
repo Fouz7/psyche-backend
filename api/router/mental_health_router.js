@@ -2,6 +2,7 @@ import express from 'express';
 import * as mentalHealthHandler from '../handler/mental_health.js';
 import {body, param} from 'express-validator';
 import { requireAuth } from '../middleware/auth.js';
+import limiter from '../middleware/rate_limit.js';
 
 const router = express.Router();
 
@@ -53,6 +54,7 @@ router.post(
 
 router.get(
     '/history/:userId',
+    limiter,
     requireAuth,
     userIdValidation,
     mentalHealthHandler.getTestHistoryByUserId
@@ -60,6 +62,7 @@ router.get(
 
 router.get(
     '/history-detail/:testId',
+    limiter,
     requireAuth,
     testIdValidation,
     mentalHealthHandler.getTestHistoryDetailById
@@ -67,6 +70,7 @@ router.get(
 
 router.get(
     '/latest-history/:userId',
+    limiter,
     requireAuth,
     userIdValidation,
     mentalHealthHandler.getLatestTestHistoryByUserId
