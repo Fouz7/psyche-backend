@@ -699,6 +699,40 @@ Authorization: Bearer {{TOKEN}}
 
 ---
 
+## 3.5 Delete Session
+**DELETE** `/chatbot/session/:sessionId`
+
+Menghapus sesi percakapan beserta seluruh pesannya.
+
+### Auth
+Wajib JWT:
+- `Authorization: Bearer <token>`
+
+### Path Param
+- `sessionId` (required)
+
+### Response
+- **200**
+```json
+{
+  "message": "Session deleted successfully"
+}
+```
+
+### Error yang mungkin
+- **401** missing/invalid token
+- **404** session tidak ditemukan
+- **403** session bukan milik user
+- **500** gagal menghapus
+
+Contoh:
+```http
+DELETE {{BASE_URL}}/chatbot/session/10
+Authorization: Bearer {{TOKEN}}
+```
+
+---
+
 # Quick Test (JetBrains HTTP Client)
 Kamu bisa pakai file `test.http` yang sudah ada, atau buat request sesuai contoh di atas.
 

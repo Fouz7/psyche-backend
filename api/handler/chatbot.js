@@ -270,3 +270,43 @@ export const getSessionDetails = async (req, res) => {
         res.status(500).json({ error: "Failed to fetch session details" });
     }
 };
+
+export const deleteSession = async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const authUserId = req.user?.userId;
+
+        if (!sessionId) {
+            return res.status(400).json({ error: "Session ID is required" });
+        }
+        if (!authUserId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const session = await prisma.chatSession.findUnique({
+            where: { id: parseInt(sessionId) }
+        });
+
+        if (!session) {
+            return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== parseInt(authUserId)) {
+            return res.status(403).json({ error: "Forbidden" });
+        }
+
+        await prisma.$transaction([
+            prisma.chatMessage.deleteMany({
+                where: { sessionId: parseInt(sessionId) }
+            }),
+            prisma.chatSession.delete({
+                where: { id: parseInt(sessionId) }
+            })
+        ]);
+
+        res.json({ message: "Session deleted successfully" });
+    } catch (error) {
+        console.error("Delete Session Error:", error);
+        res.status(500).json({ error: "Failed to delete session" });
+    }
+};
