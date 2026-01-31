@@ -571,15 +571,17 @@ Catatan: `:userId` harus sama dengan user id di token. Kalau tidak, akan **403 F
 ### Response
 - **200** array
 ```json
-[
-  {
-    "id": 10,
-    "title": "New Conversation",
-    "updatedAt": "2026-01-01T00:00:00.000Z",
-    "isPinned": false,
-    "preview": "...last message..."
-  }
-]
+{
+  "data": [
+    {
+      "id": 10,
+      "title": "New Conversation",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "isPinned": false,
+      "preview": "...last message..."
+    }
+  ]
+}
 ```
 
 ### Error yang mungkin
@@ -636,6 +638,63 @@ Authorization: Bearer {{TOKEN}}
 Content-Type: application/json
 
 {}
+```
+
+---
+
+## 3.4 Get Session Details
+**GET** `/chatbot/session/:sessionId`
+
+Mengambil detail sesi percakapan beserta seluruh pesan di dalamnya.
+
+### Auth
+Wajib JWT:
+- `Authorization: Bearer <token>`
+
+### Path Param
+- `sessionId` (required)
+
+### Response
+- **200**
+```json
+{
+  "data": {
+    "id": 10,
+    "userId": 1,
+    "title": "New Conversation",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "isPinned": false,
+    "chats": [
+      {
+        "id": 101,
+        "sessionId": 10,
+        "role": "user",
+        "content": "Hello",
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 102,
+        "sessionId": 10,
+        "role": "model",
+        "content": "Hi there! How can I help you today?",
+        "createdAt": "2026-01-01T00:00:01.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Error yang mungkin
+- **401** missing/invalid token
+- **404** session tidak ditemukan
+- **403** session bukan milik user
+- **500** gagal fetch
+
+Contoh:
+```http
+GET {{BASE_URL}}/chatbot/session/10
+Authorization: Bearer {{TOKEN}}
 ```
 
 ---

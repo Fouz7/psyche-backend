@@ -171,7 +171,7 @@ export const getChatHistory = async (req, res) => {
             preview: session.messages.length > 0 ? session.messages[0].content : ""
         }));
 
-        res.json(formattedSessions);
+        res.json({ data: formattedSessions });
     } catch (error) {
         console.error("Get History Error:", error);
         res.status(500).json({ error: "Failed to fetch chat history" });
@@ -226,5 +226,47 @@ export const togglePinSession = async (req, res) => {
     } catch (error) {
         console.error("Toggle Pin Error:", error);
         res.status(500).json({ error: "Failed to toggle pin status" });
+    }
+};
+
+export const getSessionDetails = async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const authUserId = req.user?.userId;
+
+        if (!sessionId) {
+            return res.status(400).json({ error: "Session ID is required" });
+        }
+        if (!authUserId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const session = await prisma.chatSession.findUnique({
+            where: { id: parseInt(sessionId) },
+            include: {
+                messages: {
+                    orderBy: { createdAt: 'asc' }
+                }
+            }
+        });
+
+        if (!session) {
+            return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== parseInt(authUserId)) {
+            return res.status(403).json({ error: "Forbidden" });
+        }
+
+        const responseData = {
+            ...session,
+            chats: session.messages
+        };
+        delete responseData.messages;
+
+        res.json({ data: responseData });
+    } catch (error) {
+        console.error("Get Session Details Error:", error);
+        res.status(500).json({ error: "Failed to fetch session details" });
     }
 };
