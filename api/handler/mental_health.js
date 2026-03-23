@@ -108,99 +108,122 @@ function getConcerningScoresDetails(scores) {
     for (const field of MENTAL_HEALTH_FIELDS) {
         const score = parseInt(scores[field], 10);
         if (concerningThresholds[field] && concerningThresholds[field].includes(score)) {
-            concerns.push({field, score, meaningEn: SCORE_MEANINGS_EN[score], meaningId: SCORE_MEANINGS_ID[score]});
+            concerns.push({field, score, meaningEn: SCORE_MEANINGS_EN[score]});
         }
     }
     return concerns;
 }
 
-async function getGeminiResults(depressionState, scores, latitude, longitude) {
-    try {
-        const model = genAI.getGenerativeModel({
-            model: GEMINI_MODEL,
-            generationConfig: { responseMimeType: "application/json" }
-        });
+async function getGeminiDepressionResult(scores, latitude, longitude) {
+    const model = genAI.getGenerativeModel({
+        model: GEMINI_MODEL,
+        generationConfig: { responseMimeType: "application/json" }
+    });
 
-        const concerns = getConcerningScoresDetails(scores);
-        const concernsText = concerns.map(c => `- ${c.field}: ${c.meaningEn}`).join('\n');
+    const answersText = MENTAL_HEALTH_FIELDS.map(f => `- ${f}: ${SCORE_MEANINGS_EN[scores[f]]} (Score: ${scores[f]})`).join('\n');
 
-        let stateText = "";
-        switch (depressionState) {
-            case 0: stateText = "No depression"; break;
-            case 1: stateText = "Mild depression"; break;
-            case 2: stateText = "Moderate depression"; break;
-            case 3: stateText = "Severe depression"; break;
-        }
+    const concerns = getConcerningScoresDetails(scores);
+    const concernsText = concerns.map(c => `- ${c.field}: ${c.meaningEn}`).join('\n');
 
-        let locationPrompt = "";
-        if (depressionState === 3) {
-            if (latitude && longitude) {
-                locationPrompt = `
-                The user is currently at location (Latitude: ${latitude}, Longitude: ${longitude}). 
-                As part of your "tips", please search for and recommend specific nearby psychiatrists, mental health clinics, or hospitals.`;
-            } else {
-                locationPrompt = `
-                User location is not provided. 
-                As part of your "tips", please provide encouraging advice to help the user feel comfortable seeking professional help. 
-                Emphasize that visiting a psychiatrist is a brave step, nothing to be ashamed of, and is just like seeing a doctor for physical health. 
-                Also, kindly remind them that providing location access would allow for more local and relevant recommendations.`;
-            }
-        }
-
-        const prompt = `
-            Task: Provide mental health suggestions and tips based on a user's depression assessment.
-            Assessment Result: ${stateText}
-            Specific Concerns:
-            ${concernsText || "No major concerns."}
-            ${locationPrompt}
-
-            Requirements:
-            1. Provide a "suggestion": A brief, empathetic, and supportive message (1-3 sentences).
-            2. Provide "tips": Practical tips for mental health improvement (2-3 tips).
-            3. SPECIAL RULE for Severe Depression (${stateText}): If depressionState is 3 (Severe), the tips MUST strongly recommend visiting the nearest psychiatrist/mental health professional and suggest how to find one (e.g., using maps or visiting local hospitals). Use the location information provided above if available.
-            4. Provide all outputs in both English (en) and Indonesian (id).
-            5. Return the result strictly as a JSON object with this structure:
-               {
-                 "suggestion": { "en": "...", "id": "..." },
-                 "tips": { "en": "...", "id": "..." }
-               }
-        `;
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return JSON.parse(response.text().trim());
-    } catch (error) {
-        console.error("Error generating results with Gemini:", error);
-        const fallbacks = {
-            0: {
-                suggestion: { en: "You seem to be doing well. Keep it up!", id: "Anda baik-baik saja. Pertahankan!" },
-                tips: { en: "Keep a healthy routine and stay active.", id: "Jaga rutinitas sehat dan tetap aktif." }
-            },
-            1: {
-                suggestion: { en: "You have mild symptoms. Take care of yourself.", id: "Ada gejala ringan. Jaga kesehatan diri." },
-                tips: { en: "Try meditation and talk to friends.", id: "Coba meditasi dan bicara dengan teman." }
-            },
-            2: {
-                suggestion: { en: "Moderate symptoms detected. Consider professional help.", id: "Gejala sedang terdeteksi. Pertimbangkan bantuan profesional." },
-                tips: { en: "Speak with a counselor and monitor your mood.", id: "Bicara dengan konselor dan pantau suasana hati Anda." }
-            },
-            3: {
-                suggestion: {
-                    en: "Severe symptoms detected. Please seek help immediately.",
-                    id: "Gejala berat terdeteksi. Mohon cari bantuan segera."
-                },
-                tips: {
-                    en: latitude && longitude
-                        ? "Please visit the nearest psychiatrist or hospital immediately. Based on your location, you can search for 'psychiatrist' on Google Maps to find the closest help."
-                        : "Seeking professional help is a brave and important step for your well-being; it's just like seeing a doctor for Any other health issue. There is absolutely no shame in reaching out. Please consider visiting the nearest clinic and enable location permissions for more localized help.",
-                    id: latitude && longitude
-                        ? "Segera kunjungi psikiater atau IGD rumah sakit terdekat. Berdasarkan lokasi Anda, Anda dapat mencari 'psikiater' di Google Maps untuk bantuan terdekat."
-                        : "Mencari bantuan profesional adalah langkah berani dan penting bagi kesehatan Anda; ini sama halnya dengan pergi ke dokter untuk masalah kesehatan lainnya. Tidak perlu merasa malu untuk meminta bantuan. Silakan kunjungi klinik terdekat dan berikan izin lokasi agar kami bisa membantu mencari bantuan yang lebih spesifik di dekat Anda."
-                }
-            }
-        };
-        return fallbacks[depressionState] || fallbacks[0];
+    let locationPrompt = "";
+    if (latitude && longitude) {
+        locationPrompt = `
+        The user is currently at location (Latitude: ${latitude}, Longitude: ${longitude}). 
+        If the predicted depressionState is 3 (Severe depression), as part of your "tips", please search for and recommend specific nearby psychiatrists, mental health clinics, or hospitals.`;
+    } else {
+        locationPrompt = `
+        User location is not provided. 
+        If the predicted depressionState is 3 (Severe depression), as part of your "tips", please provide encouraging advice to help the user feel comfortable seeking professional help. 
+        Emphasize that visiting a psychiatrist is a brave step, nothing to be ashamed of, and is just like seeing a doctor for physical health. 
+        Also, kindly remind them that providing location access would allow for more local and relevant recommendations.`;
     }
+
+    const prompt = `
+        Task: You are an expert psychiatrist. Analyze the user's answers to 12 mental health questions and determine their depression state, then provide suggestions and tips.
+
+        Questions evaluated:
+        1. Appetite: Do you experience changes in appetite?
+        2. Interest: Have you lost interest in activities?
+        3. Fatigue: Do you feel fatigued or have low energy?
+        4. Worthlessness: Do you feel worthless or have excessive guilt?
+        5. Concentration: Do you have difficulty concentrating?
+        6. Agitation: Do you experience physical agitation?
+        7. Suicidal Ideation: Do you have thoughts of self-harm or suicide?
+        8. Sleep Disturbance: Do you have sleep disturbances?
+        9. Aggression: Do you feel aggressive?
+        10. Panic Attacks: Do you experience panic attacks?
+        11. Hopelessness: Do you feel hopeless?
+        12. Restlessness: Do you feel restless?
+
+        Answers are scored with meanings:
+        1: "Never"
+        2: "Always"
+        3: "Often"
+        4: "Rarely"
+        5: "Sometimes"
+        6: "Not at all"
+
+        User's Answers:
+        ${answersText}
+
+        Specific Concerning Symptoms (Pay close attention to these as they indicate higher severity):
+        ${concernsText || "No major concerns flagged."}
+
+        ${locationPrompt}
+
+        Requirements:
+        1. Determine the user's overall depression state based on their answers and flagged concerning symptoms. Return this as an integer ('depressionState'):
+           0: No depression
+           1: Mild depression
+           2: Moderate depression
+           3: Severe depression
+        2. Provide a "suggestion": A brief, empathetic, and supportive message (1-3 sentences) based on their state.
+        3. Provide "tips": Practical tips for mental health improvement (2-3 tips). These MUST be specially tailored to the user's specific answers and concerning symptoms (e.g., if they lack energy, suggest rest/routine; if they have panic attacks, suggest grounding exercises; if they lack appetite, suggest small meals, etc.).
+        4. SPECIAL RULE for Severe Depression: If depressionState is 3, the tips MUST strongly recommend visiting the nearest psychiatrist/mental health professional. Use the location information provided above if available.
+        5. Provide suggestions and tips in both English (en) and Indonesian (id).
+        6. Return strictly a JSON object with this structure:
+           {
+             "depressionState": <integer 0-3>,
+             "suggestion": { "en": "...", "id": "..." },
+             "tips": { "en": "...", "id": "..." }
+           }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return JSON.parse(response.text().trim());
+}
+
+function getFallbackResults(depressionState, latitude, longitude) {
+    const fallbacks = {
+        0: {
+            suggestion: { en: "You seem to be doing well. Keep it up!", id: "Anda baik-baik saja. Pertahankan!" },
+            tips: { en: "Keep a healthy routine and stay active.", id: "Jaga rutinitas sehat dan tetap aktif." }
+        },
+        1: {
+            suggestion: { en: "You have mild symptoms. Take care of yourself.", id: "Ada gejala ringan. Jaga kesehatan diri." },
+            tips: { en: "Try meditation and talk to friends.", id: "Coba meditasi dan bicara dengan teman." }
+        },
+        2: {
+            suggestion: { en: "Moderate symptoms detected. Consider professional help.", id: "Gejala sedang terdeteksi. Pertimbangkan bantuan profesional." },
+            tips: { en: "Speak with a counselor and monitor your mood.", id: "Bicara dengan konselor dan pantau suasana hati Anda." }
+        },
+        3: {
+            suggestion: {
+                en: "Severe symptoms detected. Please seek help immediately.",
+                id: "Gejala berat terdeteksi. Mohon cari bantuan segera."
+            },
+            tips: {
+                en: latitude && longitude
+                    ? "Please visit the nearest psychiatrist or hospital immediately. Based on your location, you can search for 'psychiatrist' on Google Maps to find the closest help."
+                    : "Seeking professional help is a brave and important step for your well-being; it's just like seeing a doctor for Any other health issue. There is absolutely no shame in reaching out. Please consider visiting the nearest clinic and enable location permissions for more localized help.",
+                id: latitude && longitude
+                    ? "Segera kunjungi psikiater atau IGD rumah sakit terdekat. Berdasarkan lokasi Anda, Anda dapat mencari 'psikiater' di Google Maps untuk bantuan terdekat."
+                    : "Mencari bantuan profesional adalah langkah berani dan penting bagi kesehatan Anda; ini sama halnya dengan pergi ke dokter untuk masalah kesehatan lainnya. Tidak perlu merasa malu untuk meminta bantuan. Silakan kunjungi klinik terdekat dan berikan izin lokasi agar kami bisa membantu mencari bantuan yang lebih spesifik di dekat Anda."
+            }
+        }
+    };
+    return fallbacks[depressionState] || fallbacks[0];
 }
 
 export const predictDepression = async (req, res) => {
@@ -212,13 +235,6 @@ export const predictDepression = async (req, res) => {
     const authUserId = req.user?.userId;
     if (!authUserId) {
         return res.status(401).json({message: 'Unauthorized'});
-    }
-
-    let model;
-    try {
-        model = await loadModel();
-    } catch (error) {
-        return res.status(500).json({message: error.message || 'Machine learning model is not available.'});
     }
 
     const {userId, language = 'en', latitude, longitude, ...scores} = req.body;
@@ -239,34 +255,60 @@ export const predictDepression = async (req, res) => {
 
     const scoreValues = MENTAL_HEALTH_FIELDS.map(field => parseInt(scores[field], 10));
 
-    const meta = JSON.parse(await fs.readFile(path.join(projectRoot, 'api', 'tfjs_model', 'metadata.json'), 'utf8'));
-    const {featureStats} = meta;
-
-    const normalizedScores = scoreValues.map((value, index) => {
-        const min = featureStats.mins[index];
-        const max = featureStats.maxs[index];
-        const range = max - min;
-        return range === 0 ? 0 : (value - min) / range;
-    });
-
     let depressionState;
+    let suggestion;
+    let tips;
+
     try {
-        const inputTensor = tf.tensor2d([normalizedScores]);
-
-        const prediction = model.predict(inputTensor);
-
-        const predictionData = await prediction.data();
-        depressionState = prediction.argMax(-1).dataSync()[0];
-
-        console.log(`Model Prediction - Probabilities: [${predictionData.join(', ')}], Result: ${depressionState}`);
-
+        const geminiResult = await getGeminiDepressionResult(scores, latitude, longitude);
+        depressionState = geminiResult.depressionState;
+        suggestion = geminiResult.suggestion;
+        tips = geminiResult.tips;
     } catch (error) {
-        console.error('Error during model prediction:', error);
-        return res.status(500).json({message: 'Failed to predict depression state using the model.'});
+        console.error("Error generating results with Gemini, falling back to local model:", error);
+        
+        let model;
+        try {
+            model = await loadModel();
+        } catch (modelError) {
+            return res.status(500).json({message: modelError.message || 'Machine learning model is not available.'});
+        }
+
+        let normalizedScores;
+        try {
+            const meta = JSON.parse(await fs.readFile(path.join(projectRoot, 'api', 'tfjs_model', 'metadata.json'), 'utf8'));
+            const {featureStats} = meta;
+
+            normalizedScores = scoreValues.map((value, index) => {
+                const min = featureStats.mins[index];
+                const max = featureStats.maxs[index];
+                const range = max - min;
+                return range === 0 ? 0 : (value - min) / range;
+            });
+        } catch (err) {
+            console.error('Error reading metadata.json:', err);
+            return res.status(500).json({message: 'Failed to read model metadata.'});
+        }
+
+        try {
+            const inputTensor = tf.tensor2d([normalizedScores]);
+
+            const prediction = model.predict(inputTensor);
+
+            const predictionData = await prediction.data();
+            depressionState = prediction.argMax(-1).dataSync()[0];
+
+            console.log(`Model Prediction - Probabilities: [${predictionData.join(', ')}], Result: ${depressionState}`);
+
+        } catch (predError) {
+            console.error('Error during model prediction:', predError);
+            return res.status(500).json({message: 'Failed to predict depression state using the model.'});
+        }
+
+        const fallbackResults = getFallbackResults(depressionState, latitude, longitude);
+        suggestion = fallbackResults.suggestion;
+        tips = fallbackResults.tips;
     }
-
-
-    const { suggestion, tips } = await getGeminiResults(depressionState, scores, latitude, longitude);
 
     try {
         const healthTestRecord = await prisma.healthTest.create({
