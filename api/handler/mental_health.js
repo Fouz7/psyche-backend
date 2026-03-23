@@ -1,9 +1,9 @@
-import {PrismaClient} from '../../generated/prisma/index.js';
-import {validationResult} from 'express-validator';
-import {GoogleGenerativeAI} from '@google/generative-ai';
+import { PrismaClient } from '../../generated/prisma/index.js';
+import { validationResult } from 'express-validator';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as tf from '@tensorflow/tfjs';
 import path from 'path';
-import {promises as fs} from 'fs';
+import { promises as fs } from 'fs';
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -18,7 +18,7 @@ const fileSystemHandler = (modelJsonPath) => {
     return {
         load: async () => {
             const modelJson = JSON.parse(await fs.readFile(modelJsonPath, 'utf-8'));
-            const {modelTopology, weightsManifest} = modelJson;
+            const { modelTopology, weightsManifest } = modelJson;
 
             const weightBuffers = [];
             for (const entry of weightsManifest) {
@@ -79,15 +79,6 @@ const SCORE_MEANINGS_EN = {
     6: "Not at all"
 };
 
-const SCORE_MEANINGS_ID = {
-    1: "Tidak pernah",
-    2: "Selalu",
-    3: "Sering",
-    4: "Jarang",
-    5: "Kadang-kadang",
-    6: "Tidak sama sekali"
-};
-
 function getConcerningScoresDetails(scores) {
     const concerningThresholds = {
         appetite: [2, 3],
@@ -108,7 +99,7 @@ function getConcerningScoresDetails(scores) {
     for (const field of MENTAL_HEALTH_FIELDS) {
         const score = parseInt(scores[field], 10);
         if (concerningThresholds[field] && concerningThresholds[field].includes(score)) {
-            concerns.push({field, score, meaningEn: SCORE_MEANINGS_EN[score]});
+            concerns.push({ field, score, meaningEn: SCORE_MEANINGS_EN[score] });
         }
     }
     return concerns;
@@ -229,27 +220,27 @@ function getFallbackResults(depressionState, latitude, longitude) {
 export const predictDepression = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({errors: errors.array()});
+        return res.status(400).json({ errors: errors.array() });
     }
 
     const authUserId = req.user?.userId;
     if (!authUserId) {
-        return res.status(401).json({message: 'Unauthorized'});
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const {userId, language = 'en', latitude, longitude, ...scores} = req.body;
+    const { userId, language = 'en', latitude, longitude, ...scores } = req.body;
 
     if (parseInt(userId) !== parseInt(authUserId)) {
-        return res.status(403).json({message: 'Forbidden'});
+        return res.status(403).json({ message: 'Forbidden' });
     }
 
     for (const field of MENTAL_HEALTH_FIELDS) {
         if (scores[field] === undefined) {
-            return res.status(400).json({message: `Missing field: ${field}`});
+            return res.status(400).json({ message: `Missing field: ${field}` });
         }
         const scoreValue = parseInt(scores[field], 10);
         if (isNaN(scoreValue) || scoreValue < 1 || scoreValue > 6) {
-            return res.status(400).json({message: `Invalid score for ${field}. Must be an integer between 1 and 6.`});
+            return res.status(400).json({ message: `Invalid score for ${field}. Must be an integer between 1 and 6.` });
         }
     }
 
@@ -266,18 +257,18 @@ export const predictDepression = async (req, res) => {
         tips = geminiResult.tips;
     } catch (error) {
         console.error("Error generating results with Gemini, falling back to local model:", error);
-        
+
         let model;
         try {
             model = await loadModel();
         } catch (modelError) {
-            return res.status(500).json({message: modelError.message || 'Machine learning model is not available.'});
+            return res.status(500).json({ message: modelError.message || 'Machine learning model is not available.' });
         }
 
         let normalizedScores;
         try {
             const meta = JSON.parse(await fs.readFile(path.join(projectRoot, 'api', 'tfjs_model', 'metadata.json'), 'utf8'));
-            const {featureStats} = meta;
+            const { featureStats } = meta;
 
             normalizedScores = scoreValues.map((value, index) => {
                 const min = featureStats.mins[index];
@@ -287,7 +278,7 @@ export const predictDepression = async (req, res) => {
             });
         } catch (err) {
             console.error('Error reading metadata.json:', err);
-            return res.status(500).json({message: 'Failed to read model metadata.'});
+            return res.status(500).json({ message: 'Failed to read model metadata.' });
         }
 
         try {
@@ -302,7 +293,7 @@ export const predictDepression = async (req, res) => {
 
         } catch (predError) {
             console.error('Error during model prediction:', predError);
-            return res.status(500).json({message: 'Failed to predict depression state using the model.'});
+            return res.status(500).json({ message: 'Failed to predict depression state using the model.' });
         }
 
         const fallbackResults = getFallbackResults(depressionState, latitude, longitude);
@@ -350,36 +341,36 @@ export const predictDepression = async (req, res) => {
     } catch (error) {
         console.error('Error saving health test:', error);
         if (error.code === 'P2003' && error.meta?.field_name?.includes('userId')) {
-            return res.status(400).json({message: 'Invalid userId. User does not exist.'});
+            return res.status(400).json({ message: 'Invalid userId. User does not exist.' });
         }
-        res.status(500).json({message: 'Failed to record health test.', error: error.message});
+        res.status(500).json({ message: 'Failed to record health test.', error: error.message });
     }
 };
 
 export const getTestHistoryByUserId = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({errors: errors.array()});
+        return res.status(400).json({ errors: errors.array() });
     }
 
     const authUserId = req.user?.userId;
     if (!authUserId) {
-        return res.status(401).json({message: 'Unauthorized'});
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const {userId} = req.params;
+    const { userId } = req.params;
 
     if (parseInt(userId) !== parseInt(authUserId)) {
-        return res.status(403).json({message: 'Forbidden'});
+        return res.status(403).json({ message: 'Forbidden' });
     }
 
     try {
         const userExists = await prisma.user.findUnique({
-            where: {id: parseInt(userId)},
+            where: { id: parseInt(userId) },
         });
 
         if (!userExists) {
-            return res.status(404).json({message: 'User not found.'});
+            return res.status(404).json({ message: 'User not found.' });
         }
 
         const testHistory = await prisma.healthTest.findMany({
@@ -392,7 +383,7 @@ export const getTestHistoryByUserId = async (req, res) => {
         });
 
         if (testHistory.length === 0) {
-            return res.status(200).json({message: 'No test history found for this user.', data: []});
+            return res.status(200).json({ message: 'No test history found for this user.', data: [] });
         }
 
         const mappedHistory = testHistory.map(test => ({
@@ -412,17 +403,17 @@ export const getTestHistoryByUserId = async (req, res) => {
         });
     } catch (error) {
         console.error('Error retrieving test history:', error);
-        res.status(500).json({message: 'Failed to retrieve test history.', error: error.message});
+        res.status(500).json({ message: 'Failed to retrieve test history.', error: error.message });
     }
 };
 
 export const getTestHistoryDetailById = async (req, res) => {
     const authUserId = req.user?.userId;
     if (!authUserId) {
-        return res.status(401).json({message: 'Unauthorized'});
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const {testId} = req.params;
+    const { testId } = req.params;
 
     try {
         const test = await prisma.healthTest.findUnique({
@@ -432,11 +423,11 @@ export const getTestHistoryDetailById = async (req, res) => {
         });
 
         if (!test) {
-            return res.status(404).json({message: 'Test record not found.'});
+            return res.status(404).json({ message: 'Test record not found.' });
         }
 
         if (test.userId !== parseInt(authUserId)) {
-            return res.status(403).json({message: 'Forbidden'});
+            return res.status(403).json({ message: 'Forbidden' });
         }
 
         const result = {
@@ -475,34 +466,34 @@ export const getTestHistoryDetailById = async (req, res) => {
         });
     } catch (error) {
         console.error('Error retrieving test detail:', error);
-        res.status(500).json({message: 'Failed to retrieve test detail.', error: error.message});
+        res.status(500).json({ message: 'Failed to retrieve test detail.', error: error.message });
     }
 };
 
 export const getLatestTestHistoryByUserId = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({errors: errors.array()});
+        return res.status(400).json({ errors: errors.array() });
     }
 
     const authUserId = req.user?.userId;
     if (!authUserId) {
-        return res.status(401).json({message: 'Unauthorized'});
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const {userId} = req.params;
+    const { userId } = req.params;
 
     if (parseInt(userId) !== parseInt(authUserId)) {
-        return res.status(403).json({message: 'Forbidden'});
+        return res.status(403).json({ message: 'Forbidden' });
     }
 
     try {
         const userExists = await prisma.user.findUnique({
-            where: {id: parseInt(userId)},
+            where: { id: parseInt(userId) },
         });
 
         if (!userExists) {
-            return res.status(404).json({message: 'User not found.'});
+            return res.status(404).json({ message: 'User not found.' });
         }
 
         const latestTest = await prisma.healthTest.findFirst({
@@ -515,7 +506,7 @@ export const getLatestTestHistoryByUserId = async (req, res) => {
         });
 
         if (!latestTest) {
-            return res.status(200).json({message: 'No test history found for this user.', data: null});
+            return res.status(200).json({ message: 'No test history found for this user.', data: null });
         }
 
         const mappedLatestTest = {
@@ -540,6 +531,6 @@ export const getLatestTestHistoryByUserId = async (req, res) => {
         });
     } catch (error) {
         console.error('Error retrieving latest test history:', error);
-        res.status(500).json({message: 'Failed to retrieve latest test history.', error: error.message});
+        res.status(500).json({ message: 'Failed to retrieve latest test history.', error: error.message });
     }
 };
