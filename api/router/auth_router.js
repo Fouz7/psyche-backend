@@ -21,5 +21,8 @@ router.post('/verify-otp', authHandler.verifyOtpValidators, authHandler.verifyOt
 
 router.post('/change-password', authHandler.changePasswordValidators, authHandler.changePassword);
 
+router.post('/google-register', authHandler.googleRegister);
 
-export default router;
+router.post('/set-password', authHandler.setPassword);
+
+export default router;

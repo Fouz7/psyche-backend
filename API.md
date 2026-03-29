@@ -260,6 +260,65 @@ Contoh (reset password dengan OTP):
 
 ---
 
+## 1.7 Google Register
+**POST** `/auth/google-register`
+
+Mendaftarkan user baru yang login pertama kali menggunakan Google/Firebase Auth. User ini akan otomatis memiliki status `isVerified = true`.
+
+### Body
+```json
+{
+  "email": "string email (required)",
+  "username": "string (required)",
+  "firebaseUid": "string (required)"
+}
+```
+
+### Response
+- **201** (User baru dibuat) / **200** (User sudah ada, login sukses)
+```json
+{
+  "message": "User registered successfully with Google.",
+  "email": "user@example.com",
+  "username": "budi",
+  "userId": 1,
+  "token": "<jwt>"
+}
+```
+
+### Error yang mungkin
+- **400** email sudah terdaftar dengan metode lain / validasi gagal
+- **500** registrasi gagal
+
+---
+
+## 1.8 Set Password (Google User)
+**POST** `/auth/set-password`
+
+Memungkinkan user yang mendaftar via Google untuk mengatur password mereka pertama kali (atau reset) menggunakan `firebaseUid` sebagai identifikasi, tanpa perlu password lama.
+
+### Body
+```json
+{
+  "firebaseUid": "string (required)",
+  "newPassword": "string min 6 (required)"
+}
+```
+
+### Response
+- **200**
+```json
+{ "message": "Password has been set successfully." }
+```
+
+### Error yang mungkin
+- **400** validasi gagal
+- **404** user tidak ditemukan berdasarkan firebaseUid
+- **500** gagal update
+
+---
+
+
 # 2) Mental Health API (`/mental-health`)
 
 ## Authentication (JWT)
