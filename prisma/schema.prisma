@@ -18,7 +18,7 @@ model User {
   id           Int          @id @default(autoincrement())
   username     String
   email        String       @unique
-  passwordHash String
+  passwordHash String?
   firebaseUid  String? @unique
   isVerified   Boolean      @default(false)
   createdAt    DateTime     @default(now())

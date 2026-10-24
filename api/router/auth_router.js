@@ -1,14 +1,15 @@
 import express from 'express';
 import * as authHandler from '../handler/auth.js';
-import {body} from 'express-validator';
+import { body } from 'express-validator';
 import limiter from '../middleware/rate_limit.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.post('/register', [
     body('username').notEmpty().withMessage('Username is required'),
     body('email').isEmail().withMessage('Invalid email address'),
-    body('password').isLength({min: 6}).withMessage('Password must be at least 6 characters long'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
 ], authHandler.register);
 
 router.post('/login', limiter, authHandler.loginValidators, authHandler.login);
@@ -21,8 +22,12 @@ router.post('/verify-otp', authHandler.verifyOtpValidators, authHandler.verifyOt
 
 router.post('/change-password', authHandler.changePasswordValidators, authHandler.changePassword);
 
-router.post('/google-register', authHandler.googleRegister);
+router.post('/google-register', limiter, authHandler.googleRegister);
+
+router.post('/google', limiter, authHandler.googleRegister);
 
 router.post('/set-password', authHandler.setPassword);
 
-export default router;
+router.get('/me', requireAuth, authHandler.getMe);
+
+export default router;

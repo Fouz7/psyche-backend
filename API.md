@@ -260,17 +260,20 @@ Contoh (reset password dengan OTP):
 
 ---
 
-## 1.7 Google Register
-**POST** `/auth/google-register`
+## 1.7 Google Register / Login
+**POST** `/auth/google-register` (alias: `/auth/google`)
 
-Mendaftarkan user baru yang login pertama kali menggunakan Google/Firebase Auth. User ini akan otomatis memiliki status `isVerified = true`.
+Autentikasi user menggunakan Google/Firebase Auth:
+- Jika user **belum terdaftar** di database: otomatis didaftarkan dengan `isVerified = true` dan `passwordHash = null` (`hasPassword = false`).
+- Jika email **sudah terdaftar sebelumnya** (baik dari registrasi email biasa maupun Google): akun di-link dengan `firebaseUid`, otomatis terverifikasi (`isVerified = true`), dan langsung login mengambil data user existing (`hasPassword` menyesuaikan apakah user sudah punya password atau belum).
 
 ### Body
 ```json
 {
-  "email": "string email (required)",
-  "username": "string (required)",
-  "firebaseUid": "string (required)"
+  "email": "string email (required if googleIdToken omitted)",
+  "username": "string (optional, fallback ke nama Google / prefix email)",
+  "firebaseUid": "string (required if googleIdToken omitted)",
+  "googleIdToken": "string Google OAuth ID Token (optional, diverifikasi ke Google)"
 }
 ```
 
@@ -282,25 +285,30 @@ Mendaftarkan user baru yang login pertama kali menggunakan Google/Firebase Auth.
   "email": "user@example.com",
   "username": "budi",
   "userId": 1,
+  "firebaseUid": "uid_123",
+  "hasPassword": false,
+  "isNewUser": true,
   "token": "<jwt>"
 }
 ```
 
 ### Error yang mungkin
-- **400** email sudah terdaftar dengan metode lain / validasi gagal
-- **500** registrasi gagal
+- **400** validasi gagal
+- **401** `googleIdToken` tidak valid
+- **500** autentikasi gagal
 
 ---
 
 ## 1.8 Set Password (Google User)
 **POST** `/auth/set-password`
 
-Memungkinkan user yang mendaftar via Google untuk mengatur password mereka pertama kali (atau reset) menggunakan `firebaseUid` sebagai identifikasi, tanpa perlu password lama.
+Memungkinkan user yang mendaftar via Google (dan belum memiliki password, `hasPassword = false`) untuk mengatur password mereka pertama kali tanpa perlu password lama. Dapat diidentifikasi melalui header `Authorization: Bearer <token>`, atau `firebaseUid` / `email` di body. Jika user sudah memiliki password, endpoint ini akan menolak dengan **400** (harus menggunakan `/auth/change-password`).
 
 ### Body
 ```json
 {
-  "firebaseUid": "string (required)",
+  "firebaseUid": "string (optional jika menggunakan Bearer token)",
+  "email": "string (optional jika menggunakan Bearer token)",
   "newPassword": "string min 6 (required)"
 }
 ```
@@ -308,13 +316,37 @@ Memungkinkan user yang mendaftar via Google untuk mengatur password mereka perta
 ### Response
 - **200**
 ```json
-{ "message": "Password has been set successfully." }
+{
+  "message": "Password has been set successfully.",
+  "hasPassword": true,
+  "token": "<jwt>"
+}
 ```
 
 ### Error yang mungkin
-- **400** validasi gagal
-- **404** user tidak ditemukan berdasarkan firebaseUid
+- **400** validasi gagal / password sudah pernah diatur sebelumnya
+- **404** user tidak ditemukan
 - **500** gagal update
+
+---
+
+## 1.9 Get Current User Profile
+**GET** `/auth/me`
+
+Mengambil profil singkat dan status `hasPassword` dari user yang sedang login. Membutuhkan header `Authorization: Bearer <token>`.
+
+### Response
+- **200**
+```json
+{
+  "userId": 1,
+  "username": "budi",
+  "email": "user@example.com",
+  "firebaseUid": "uid_123",
+  "isVerified": true,
+  "hasPassword": true
+}
+```
 
 ---
 
