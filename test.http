@@ -1,0 +1,7 @@
+### Request Forgot Password
+POST https://psyche-backend-plum.vercel.app/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "dhikifauzan97@gmail.com"
+}

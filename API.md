@@ -32,9 +32,11 @@ Auth (email & JWT):
 - `JWT_SECRET` (default: `dev-secret`)
 - `BASE_URL` (dipakai untuk membuat link verifikasi email; default `http://localhost:3000`)
 
-AI / ML:
-- `GEMINI_API_KEY` (wajib untuk Gemini)
+AI / ML & RAG:
+- `GEMINI_API_KEY` (wajib untuk Gemini & embedding)
 - `GEMINI_MODEL` (default: `gemini-3-flash-preview`)
+- `GEMINI_EMBEDDING_MODEL` (optional, default: `gemini-embedding-001`, 768 dimensi)
+- `RAG_SIMILARITY_THRESHOLD` (optional, default: `0.64`, ambang batas cosine similarity untuk retrieval semantik)
 
 ---
 
@@ -389,7 +391,7 @@ Wajib JWT:
 
 Catatan: `userId` di body harus sama dengan user id di token. Kalau tidak, akan **403 Forbidden**.
 
-Melakukan prediksi menggunakan model TFJS lokal (`api/tfjs_model`) dan membuat saran menggunakan Gemini. Hasilnya juga disimpan ke database (`healthTest`).
+Melakukan prediksi menggunakan Gemini (dengan fallback ke model TFJS lokal `api/tfjs_model`) dan membuat saran serta tips. Hasilnya disimpan ke tabel `health_tests` dan secara otomatis di-embed ke vector database PostgreSQL (`pgvector` pada tabel `health_test_embeddings`) agar dapat diakses secara selektif oleh chatbot RAG.
 
 `latitude` dan `longitude` bersifat opsional, namun jika disertakan akan digunakan Gemini untuk memberikan rekomendasi bantuan/layanan kesehatan mental terdekat.
 
@@ -433,7 +435,8 @@ Melakukan prediksi menggunakan model TFJS lokal (`api/tfjs_model`) dan membuat s
     "tips": {
       "en": "...",
       "id": "..."
-    }
+    },
+    "vectorIndexed": true
   }
 }
 ```
@@ -611,6 +614,8 @@ Token bisa didapat dari `POST /auth/login`.
 
 Mengirim pesan ke chatbot. Jika `sessionId` tidak dikirim, server membuat session baru dan akan membuat judul otomatis dari pesan pertama.
 
+Chatbot menggunakan **Selective Agentic RAG** (Gemini Function Calling + `pgvector` similarity threshold): model menimbang sendiri kapan perlu mengambil riwayat tes kesehatan mental user dari vector database (misalnya saat user menanyakan hasil/perkembangan tes atau menceritakan keluhan pribadi yang relevan), dan **tidak** mengambil data tes untuk sapaan, pertanyaan psikologi umum, atau topik di luar konteks tes.
+
 ### Body
 ```json
 {
@@ -634,9 +639,13 @@ Keterangan:
 {
   "response": "...jawaban model...",
   "sessionId": 10,
-  "title": "..."
+  "title": "...",
+  "ragUsed": false
 }
 ```
+
+Keterangan:
+- `ragUsed` (`boolean`): bernilai `true` apabila chatbot memanggil tool RAG dan menemukan riwayat tes yang relevan untuk membantu menyusun jawaban, atau `false` jika dijawab tanpa data tes.
 
 ### Error yang mungkin
 - **400** jika `userId` atau `message` kosong

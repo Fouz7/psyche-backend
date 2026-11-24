@@ -1,13 +1,26 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
+import prisma from '../lib/prisma.js';
 import { validationResult } from 'express-validator';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as tf from '@tensorflow/tfjs';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { saveTestEmbedding } from '../services/rag_service.js';
 
-const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+
+async function trySaveTestEmbedding(healthTestRecord) {
+    try {
+        await saveTestEmbedding(healthTestRecord);
+        return true;
+    } catch (error) {
+        console.error(
+            `Failed to save vector embedding for healthTestId=${healthTestRecord.id}:`,
+            error
+        );
+        return false;
+    }
+}
 
 const projectRoot = process.env.VERCEL ? '/var/task' : process.cwd();
 const modelJsonPath = path.join(projectRoot, 'api', 'tfjs_model', 'model.json');
@@ -326,6 +339,8 @@ export const predictDepression = async (req, res) => {
             },
         });
 
+        const vectorIndexed = await trySaveTestEmbedding(healthTestRecord);
+
         res.status(201).json({
             message: 'Depression state predicted and recorded successfully.',
             data: {
@@ -336,6 +351,7 @@ export const predictDepression = async (req, res) => {
                 language: healthTestRecord.language,
                 suggestion: suggestion,
                 tips: tips,
+                vectorIndexed,
             },
         });
     } catch (error) {
